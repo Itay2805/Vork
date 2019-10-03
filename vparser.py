@@ -5,6 +5,8 @@ from vlexer import VLexer
 class VParser(Parser):
     tokens = VLexer.tokens
 
+    debugfile = "test.out"
+
     precedence = (
         # TODO Assignment?
         # Logical OR
@@ -59,9 +61,9 @@ class VParser(Parser):
     # Function definition
     #
 
-    @_('FN NAME "(" fn_args ")" fn_ret stmt_block')
+    @_('maybe_pub FN NAME "(" fn_args ")" fn_ret stmt_block')
     def module_item(self, p):
-        return ('fn_decl', p.NAME, p.fn_args, p.fn_ret, p.stmt_block)
+        return ('fn_decl', p.NAME, p.maybe_pub, p.fn_args, p.fn_ret, p.stmt_block)
 
     @_('')
     def fn_args(self, p):
@@ -73,9 +75,9 @@ class VParser(Parser):
     def fn_args(self, p):
         return p.fn_args + [(p.NAME, p.maybe_mut, p.maybe_opt, p.type_decl)]
 
-    @_('NAME type_decl')
+    @_('NAME maybe_mut maybe_opt type_decl')
     def fn_args(self, p):
-        return [(p.NAME, p.type_decl)]
+        return [(p.NAME, p.maybe_mut, p.maybe_opt, p.type_decl)]
 
     @_('type_decl')
     def fn_ret(self, p):
@@ -89,13 +91,13 @@ class VParser(Parser):
     def fn_ret(self, p):
         return p.fn_ret_list
 
-    @_('fn_ret_list "," type_decl')
+    @_('fn_ret_list "," maybe_mut maybe_opt type_decl')
     def fn_ret_list(self, p):
-        return p.fn_ret_list + [p.type_decl]
+        return p.fn_ret_list + [(p.maybe_mut, p.maybe_opt, p.type_decl)]
 
-    @_('NAME')
+    @_('maybe_mut maybe_opt type_decl')
     def fn_ret_list(self, p):
-        return [p.NAME]
+        return [(p.maybe_mut, p.maybe_opt, p.type_decl)]
 
     #
     # Method definition
@@ -293,22 +295,38 @@ class VParser(Parser):
     def stmt(self, p):
         return ('for_each', p.NAME0, p.NAME1, p.expr, p.stmt_block)
 
+    # TODO: a bit hacky, so we can have both the assign statement and expressions in the last place
+    # TODO: also for now we only allow a declaration inside the first thing
+    # TODO: also also, none of them can be empty
+
+    @_('FOR NAME ASSIGN_DECLARE expr ";" expr ";" assign_stmt stmt_block NEWLINE')
+    def stmt(self, p):
+        return ('for', (p.NAME, p.expr0), p.expr1, p.assign_stmt, p.stmt_block)
+
+    @_('FOR NAME ASSIGN_DECLARE expr ";" expr ";" expr stmt_block NEWLINE')
+    def stmt(self, p):
+        return ('for', (p.NAME, p.expr0), p.expr1, p.expr2, p.stmt_block)
+
     #
     # Assign statement
     #
 
-    @_('expr ASSIGN_ADD expr NEWLINE',
-       'expr ASSIGN_SUB expr NEWLINE',
-       'expr ASSIGN_MUL expr NEWLINE',
-       'expr ASSIGN_DIV expr NEWLINE',
-       'expr ASSIGN_MOD expr NEWLINE',
-       'expr ASSIGN_AND expr NEWLINE',
-       'expr ASSIGN_OR expr NEWLINE',
-       'expr ASSIGN_XOR expr NEWLINE',
-       'expr ASSIGN_LEFT_SHIFT expr NEWLINE',
-       'expr ASSIGN_RIGHT_SHIFT expr NEWLINE',
-       )
+    @_('assign_stmt NEWLINE')
     def stmt(self, p):
+        return p.assign_stmt
+
+    @_('expr ASSIGN_ADD expr',
+       'expr ASSIGN_SUB expr',
+       'expr ASSIGN_MUL expr',
+       'expr ASSIGN_DIV expr',
+       'expr ASSIGN_MOD expr',
+       'expr ASSIGN_AND expr',
+       'expr ASSIGN_OR expr',
+       'expr ASSIGN_XOR expr',
+       'expr ASSIGN_LEFT_SHIFT expr',
+       'expr ASSIGN_RIGHT_SHIFT expr',
+       )
+    def assign_stmt(self, p):
         expr_list = {
             '+=': 'add',
             '-=': 'sub',
@@ -333,6 +351,10 @@ class VParser(Parser):
              )
         ]
 
+    @_('expr "=" expr')
+    def assign_stmt(self, p):
+        return ('assign', p.expr0, p.expr1)
+
     #
     # Misc
     #
@@ -352,10 +374,6 @@ class VParser(Parser):
     @_('ASSERT expr NEWLINE')
     def stmt(self, p):
         return ('assert', p.expr)
-
-    @_('expr "=" expr NEWLINE')
-    def stmt(self, p):
-        return ('assign', p.expr0, p.expr1)
 
     @_('NEWLINE')
     def stmt(self, p):
@@ -434,9 +452,21 @@ class VParser(Parser):
     def expr(self, p):
         return ('access_index', p.expr0, p.expr1)
 
-    @_('expr "(" expr_list ")"')
+    @_('expr "(" fn_param_list ")"')
     def expr(self, p):
-        return ('fn_call', p.expr, p.expr_list)
+        return ('fn_call', p.expr, p.fn_param_list)
+
+    @_('fn_param_list "," maybe_mut maybe_opt expr')
+    def fn_param_list(self, p):
+        return p.fn_param_list + [(p.maybe_mut, p.maybe_opt, p.expr)]
+
+    @_('maybe_mut maybe_opt expr')
+    def fn_param_list(self, p):
+        return [(p.maybe_mut, p.maybe_opt, p.expr)]
+
+    @_('')
+    def fn_param_list(self, p):
+        return []
 
     @_('expr "." expr')
     def expr(self, p):
@@ -514,4 +544,12 @@ class VParser(Parser):
 
     @_('MUT')
     def maybe_mut(self, p):
+        return True
+
+    @_('')
+    def maybe_pub(self, p):
+        return False
+
+    @_('PUB')
+    def maybe_pub(self, p):
         return True
