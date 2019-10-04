@@ -6,7 +6,7 @@ class VLexer(Lexer):
         BREAK, CONST, CONTINUE, DEFER, ELSE, ENUM, FN,
         FOR, GO, GOTO, IF, IMPORT, IN, INTERFACE, MATCH,
         MODULE, MUT, OR, PUB, RETURN, STRUCT, TYPE, MAP,
-        ASSERT,
+        ASSERT, TRUE, FALSE,
 
         LEFT_SHIFT, RIGHT_SHIFT, EQUALS, NOT_EQUALS,
         LESS_EQUALS, GREATER_EQUALS, LOGICAL_AND,
@@ -20,33 +20,7 @@ class VLexer(Lexer):
     }
     ignore = ' \t'
 
-    literals = {'*', '/', '%', '&', '+', '-', '|', '^', '{', '}', '(', ')', '[', ']', ',', '.', '>', '<', ';'}
-
-    # Keywords (should not have another letter afterwards)
-    BREAK = r'break[^a-zA-Z0-9_]'
-    CONST = r'const[^a-zA-Z0-9_]'
-    CONTINUE = r'continue[^a-zA-Z0-9_]'
-    DEFER = r'defer[^a-zA-Z0-9_]'
-    ELSE = r'else[^a-zA-Z0-9_]'
-    ENUM = r'enum[^a-zA-Z0-9_]'
-    FN = r'fn[^a-zA-Z0-9_]'
-    FOR = r'for[^a-zA-Z0-9_]'
-    GO = r'go[^a-zA-Z0-9_]'
-    GOTO = r'goto[^a-zA-Z0-9_]'
-    IF = r'if[^a-zA-Z0-9_]'
-    IMPORT = r'import[^a-zA-Z0-9_]'
-    IN = r'in[^a-zA-Z0-9_]'
-    INTERFACE = r'interface[^a-zA-Z0-9_]'
-    MATCH = r'match[^a-zA-Z0-9_]'
-    MODULE = r'module[^a-zA-Z0-9_]'
-    MUT = r'mut[^a-zA-Z0-9_]'
-    OR = r'or[^a-zA-Z0-9_]'
-    PUB = r'pub[^a-zA-Z0-9_]'
-    RETURN = r'return[^a-zA-Z0-9_]'
-    STRUCT = r'struct[^a-zA-Z0-9_]'
-    TYPE = r'type[^a-zA-Z0-9_]'
-    MAP = r'map[^a-zA-Z0-9_]'
-    ASSERT = r'assert[^a-zA-Z0-9_]'
+    literals = {'*', '/', '%', '&', '+', '-', '|', '^', '{', '}', '(', ')', '[', ']', ',', '.', '>', '<', ';', '?'}
 
     LEFT_SHIFT = r'<<'
     RIGHT_SHIFT = r'>>'
@@ -71,7 +45,35 @@ class VLexer(Lexer):
 
     NAME = r'[a-zA-Z_][a-zA-Z0-9_]*'
 
-    @_(r"""("([^"\\] | \\.) * ")|('([^'\\]|\\.)*')""")
+    # Keywords
+    NAME['break'] = BREAK
+    NAME['const'] = CONST
+    NAME['continue'] = CONTINUE
+    NAME['defer'] = DEFER
+    NAME['else'] = ELSE
+    NAME['enum'] = ENUM
+    NAME['fn'] = FN
+    NAME['for'] = FOR
+    NAME['go'] = GO
+    NAME['goto'] = GOTO
+    NAME['if'] = IF
+    NAME['import'] = IMPORT
+    NAME['in'] = IN
+    NAME['interface'] = INTERFACE
+    NAME['match'] = MATCH
+    NAME['module'] = MODULE
+    NAME['mut'] = MUT
+    NAME['or'] = OR
+    NAME['pub'] = PUB
+    NAME['return'] = RETURN
+    NAME['struct'] = STRUCT
+    NAME['type'] = TYPE
+    NAME['map'] = MAP
+    NAME['assert'] = ASSERT
+    NAME['true'] = TRUE
+    NAME['false'] = FALSE
+
+    @_(r"""("([^"\\]|\\.)*")|('([^'\\]|\\.)*')""")
     def STRING(self, t):
         t.value = t.value[1:-1]
         # TODO: Escaped stuff
