@@ -44,6 +44,8 @@ class VInterpreter:
             return expr.num
         elif isinstance(expr, ExprIdentifierLiteral):
             return self.call_stack[-1].get_variable(expr.name)
+        elif isinstance(expr, ExprBinary):
+            return eval(f'{self._eval_expression(expr.expr0)} {expr.op} {self._eval_expression(expr.expr1)}')
         else:
             assert False, f"Unknown expression {expr}"
 

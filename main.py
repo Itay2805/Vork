@@ -9,8 +9,8 @@ if __name__ == '__main__':
     parser = VParser()
 
     tokens = lexer.tokenize("""
-fn test(a int) (int) {
-    return a
+fn add(a, b int) (int) {
+    return a + b
 }
 """)
 
@@ -18,7 +18,7 @@ fn test(a int) (int) {
     module.type_checking()
 
     interp = VInterpreter(module)
-    print(interp.run_function('test', [123]))
+    print(interp.run_function('add', [5, 3]))
 
     # dumper.default_dumper.instance_dump = ['vast', 'vtypes', 'vstmt', 'vexpr']
     # dumper.dump(module)

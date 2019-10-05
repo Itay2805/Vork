@@ -28,6 +28,14 @@ class VParser(Parser):
         self.module_data.add_type(VU128(False), 'u128')
         self.module_data.add_type(VBool(False), 'bool')
 
+    precedence = (
+        ('left', 'LOGICAL_OR'),
+        ('left', 'LOGICAL_AND'),
+        # TODO: Comparison operators
+        ('left', '+', '-', '|', '^'),
+        ('left', '*', '/', '%', 'RIGHT_SHIFT', 'LEFT_SHIFT', '&')
+    )
+
     ###################################################################################################
     # Module scope
     ###################################################################################################
@@ -226,6 +234,24 @@ class VParser(Parser):
     @_('')
     def expr_list(self, p):
         return []
+
+    #
+    # Binary Expressions
+    #
+
+    @_('expr "+" expr',
+       'expr "-" expr',
+       'expr "*" expr',
+       'expr "/" expr',
+       'expr "%" expr',
+       'expr "&" expr',
+       'expr "|" expr',
+       'expr "^" expr',
+       'expr LEFT_SHIFT expr',
+       'expr RIGHT_SHIFT expr',
+       )
+    def expr(self, p):
+        return ExprBinary(p[1], p.expr0, p.expr1)
 
     #
     # Literals
