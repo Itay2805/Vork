@@ -1,4 +1,5 @@
 from copy import copy
+from typing import *
 
 
 class VType:
@@ -260,13 +261,48 @@ class VMap(VType):
         return f'{"mut " if self.mut else ""}map[{self.type0}]{self.type1}'
 
 
+class VFunctionType(VType):
+
+    def __init__(self, mut):
+        super(VFunctionType, self).__init__(mut)
+        self.params = []  # type: List[VType]
+        self.return_types = []  # type: List[VType]
+
+    def add_param(self, xtype):
+        """
+        :type type: VType
+        """
+        assert xtype is not None
+        self.params.append(xtype)
+
+    def __eq__(self, other):
+        if isinstance(other, VFunctionType) and self.mut == other.mut:
+            if self.return_types != other.return_types:
+                return False
+            if self.params != other.params:
+                return False
+            return True
+        return False
+
+    def __str__(self):
+        # Format params
+        params = ', '.join([str(param) for param in self.params])
+
+        # Format return types
+        return_types = ', '.join([f'{return_type}' for return_type in self.return_types])
+        if len(self.return_types) > 1:
+            return_types = f'({return_types})'
+
+        return f'{"mut " if self.mut else ""}fn ({params}) {return_types}'
+
+
 #
 # Helpers
 #
 
-def is_integer(type):
-    return isinstance(type, VIntegerType)
+def is_integer(xtype):
+    return isinstance(xtype, VIntegerType)
 
 
-def is_bool(type):
-    return isinstance(type, VBool)
+def is_bool(xtype):
+    return isinstance(xtype, VBool)

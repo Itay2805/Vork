@@ -7,7 +7,7 @@ class ModuleDecl:
 
     def __init__(self):
         self.name = 'main'
-        self.functions = {}  # type: Dict[str, FunctionDecl]
+        self.functions = {}  # type: Dict[str, VFunction]
         self.types = []  # type: List[VType]
         self.named_types = {}  # type: Dict[str, VType]
 
@@ -17,24 +17,25 @@ class ModuleDecl:
     def add_function(self, name, func):
         """
         :type name: str
-        :type func: FunctionDecl
+        :type func: VFunction
         """
         self.functions[name] = func
 
-    def add_type(self, type, name=None):
+    def add_type(self, xtype, name=None):
         """
-        :type type: VType
+        :type xtype: VType
         :type name: str
         """
 
-        if type in self.types:
-            return self.types[self.types.index(type)]
+        if xtype in self.types:
+            xtype = self.types[self.types.index(xtype)]
+        else:
+            self.types.append(xtype)
 
-        self.types.append(type)
         if name is not None:
-            self.named_types[name] = type
+            self.named_types[name] = xtype
 
-        return type
+        return xtype
 
     def _resolve_unresolved_type(self, unresolved):
         """
@@ -69,6 +70,22 @@ class ModuleDecl:
                 type.type1 = self._resolve_unresolved_type(type.type1)
             else:
                 self._resolve_type(type.type1)
+
+        # Function type resolving
+        elif isinstance(type, VFunctionType):
+
+            # Resolve the params
+            for i in range(len(type.params)):
+                param = type.params[i]
+                if isinstance(param, VUnresolvedType):
+                    type.params[i] = self._resolve_unresolved_type(param)
+
+            # resolve the arguments
+            for i in range(len(type.return_types)):
+                return_type = type.return_types[i]
+                if isinstance(return_type, VUnresolvedType):
+                    type.return_types[i] = self._resolve_unresolved_type(return_type)
+
         elif isinstance(type, VBool) or isinstance(type, VIntegerType):
             # Ignore
             return
@@ -80,21 +97,6 @@ class ModuleDecl:
         for t in self.types:
             self._resolve_type(t)
 
-        for func in self.functions:
-            func = self.functions[func]
-
-            # resolve params
-            for arg_name in func.params:
-                param = func.params[arg_name]
-                if isinstance(param, VUnresolvedType):
-                    func.params[arg_name] = self._resolve_unresolved_type(param)
-
-            # resolve return types
-            for i in range(len(func.return_types)):
-                ret_type = func.return_types[i]
-                if isinstance(ret_type, VUnresolvedType):
-                    func.return_types[i] = self._resolve_unresolved_type(ret_type)
-
         # now we should have all the functions fully resolved, so we are ready for type checking
         for func in self.functions:
             func = self.functions[func]
@@ -105,7 +107,7 @@ class StmtCompound(Stmt):
 
     def __init__(self, parent):
         """
-        :type parent: FunctionScope or FunctionDecl
+        :type parent: FunctionScope or VFunction
         """
         self.parent = parent
         self.code = []  # type: List[Stmt]
@@ -115,12 +117,13 @@ class StmtCompound(Stmt):
             c.type_check(module, self)
 
 
-class FunctionDecl:
+class VFunction:
 
     def __init__(self):
+        self.name = ''
         self.pub = False
-        self.params = {}  # type: Dict[str, VType]
-        self.return_types = []  # type: List[VType]
+        self.type = VFunctionType(False)
+        self.param_names = []  # type: List[str]
         self.root_scope = StmtCompound(self)
         self.scope_stack = [self.root_scope]  # type: List[StmtCompound]
 
@@ -143,11 +146,19 @@ class FunctionDecl:
         :type name: str
         :type type: VType
         """
-        assert name not in self.params, "Parameter with that name was already defined for this function"
-        self.params[name] = type
+        assert name not in self.param_names
+        self.param_names.append(name)
+        self.type.add_param(type)
 
     def add_return_type(self, type):
         """
         :type type: VType
         """
-        self.return_types.append(type)
+        self.type.return_types.append(type)
+
+    def __str__(self):
+        params = ', '.join([f'{self.param_names[i]} {self.type.params[i]}' for i in range(len(self.param_names))])
+        return_types = ', '.join([f'{arg}' for arg in self.type.return_types])
+        if len(self.type.return_types) > 1:
+            return_types = f'({return_types})'
+        return f'fn {self.name} ({params}) {return_types}'

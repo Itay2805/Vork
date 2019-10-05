@@ -1,5 +1,6 @@
 from sly import Parser
 from vlexer import VLexer
+from typing import *
 
 from vast import *
 from vexpr import *
@@ -11,7 +12,7 @@ class VParser(Parser):
 
     def __init__(self):
         self.module_data = ModuleDecl()
-        self.current_function = FunctionDecl()
+        self.current_function = VFunction()
         self.current_scope = self.current_function.current_scope()
 
         # Add all builtin types
@@ -51,10 +52,31 @@ class VParser(Parser):
     def module_item(self, p):
         # set the properties of the function and add it
         self.current_function.pub = p.maybe_pub
+        self.current_function.name = p.NAME
+
+        # Resolve all types
+        fn_args = p.fn_args  # type: List[Tuple[str, VType]]
+        last_arg_type = None
+        for i in reversed(range(len(fn_args))):
+            fn_arg = fn_args[i]
+            if fn_arg[1] is None:
+                assert last_arg_type is not None
+                fn_args[i] = (fn_arg[0], last_arg_type)
+            else:
+                last_arg_type = fn_arg[1]
+
+        # Add all arguments to the function
+        for fn_arg in fn_args:
+            self.current_function.add_param(fn_arg[0], fn_arg[1])
+
+        # Set the type correctly
+        self.current_function.type = self.module_data.add_type(self.current_function.type)
+
+        # Add the function
         self.module_data.add_function(p.NAME, self.current_function)
 
         # reset current function
-        self.current_function = FunctionDecl()
+        self.current_function = VFunction()
         self.current_scope = self.current_function.current_scope()
 
     @_('"{" stmt_list "}"')
@@ -66,14 +88,34 @@ class VParser(Parser):
     def fn_block(self, p):
         pass
 
+    @_('fn_args "," fn_arg')
+    def fn_args(self, p):
+        if p.fn_arg is None:
+            return p.fn_args
+        return p.fn_args + [p.fn_arg]
+
+    @_('fn_arg')
+    def fn_args(self, p):
+        if p.fn_arg is  None:
+            return None
+        return [p.fn_arg]
+
     @_('')
     def fn_args(self, p):
-        pass
+        return []
 
-    @_('fn_args "," NAME type_decl',
-       'NAME type_decl')
-    def fn_args(self, p):
-        self.current_function.add_param(p.NAME, p.type_decl)
+    @_('NAME type_decl')
+    def fn_arg(self, p):
+        print('got typed param')
+        return p.NAME, p.type_decl
+
+    @_('NAME')
+    def fn_arg(self, p):
+        print('got name only param')
+        return p.NAME, None
+
+
+    #self.current_function.add_param(p.NAME, p.type_decl)
 
     # TODO: Support for a, b int
 
@@ -90,6 +132,18 @@ class VParser(Parser):
        'type_decl')
     def fn_ret_list(self, p):
         self.current_function.add_return_type(p.type_decl)
+
+    #
+    # Misc
+    #
+
+    @_('MODULE NAME')
+    def module_item(self, p):
+        self.module_data.set_module_name(p.NAME)
+
+    @_('TYPE NAME type_decl')
+    def module_item(self, p):
+        self.module_data.add_type(p.type_decl, p.NAME)
 
     ###################################################################################################
     # Statement
