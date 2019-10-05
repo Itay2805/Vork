@@ -3,7 +3,7 @@ from vtypes import *
 from vstmt import *
 
 
-class ModuleDecl:
+class VModule:
 
     def __init__(self):
         self.name = 'main'

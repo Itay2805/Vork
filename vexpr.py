@@ -6,7 +6,7 @@ class Expr:
 
     def resolve_type(self, module, scope):
         """
-        :type module: ModuleDecl
+        :type module: VModule
         :type scope: StmtCompound
         :rtype: VType
         """

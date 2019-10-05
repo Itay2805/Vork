@@ -1,6 +1,7 @@
 from vlexer import VLexer
 from vparser import VParser
-from vast import ModuleDecl
+from vast import VModule
+from vinterpreter import VInterpreter
 import dumper
 
 if __name__ == '__main__':
@@ -8,17 +9,17 @@ if __name__ == '__main__':
     parser = VParser()
 
     tokens = lexer.tokenize("""
-fn test(a, b type_b) (type_a) {
+fn test() (int) {
     return 123
 }
-
-type type_a type_b
-type type_b int
 """)
 
-    module = parser.parse(tokens)  # type: ModuleDecl
+    module = parser.parse(tokens)  # type: VModule
     module.type_checking()
 
-    dumper.default_dumper.instance_dump = ['vast', 'vtypes', 'vstmt', 'vexpr']
-    dumper.dump(module)
+    interp = VInterpreter(module)
+    print(interp.run_function('test'))
+
+    # dumper.default_dumper.instance_dump = ['vast', 'vtypes', 'vstmt', 'vexpr']
+    # dumper.dump(module)
 

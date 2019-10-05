@@ -11,7 +11,7 @@ class VParser(Parser):
     tokens = VLexer.tokens
 
     def __init__(self):
-        self.module_data = ModuleDecl()
+        self.module_data = VModule()
         self.current_function = VFunction()
         self.current_scope = self.current_function.current_scope()
 
