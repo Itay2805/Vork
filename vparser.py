@@ -143,8 +143,6 @@ class VParser(Parser):
 
     @_('ASSERT expr NEWLINE')
     def stmt(self, p):
-        expr = p.expr  # type: Expr
-        assert is_bool(expr.resolve_type()), f"Assert expected {VBool}, got {expr.resolve_type().__class__}"
         return StmtAssert(p.expr)
 
     @_('NEWLINE')
@@ -202,6 +200,10 @@ class VParser(Parser):
     @_('maybe_mut "&" type_decl')
     def type_decl(self, p):
         return self.module_data.add_type(VRef(p.maybe_mut, p.type_decl))
+
+    @_('maybe_mut MAP "[" type_decl "]" type_decl')
+    def type_decl(self, p):
+        return self.module_data.add_type(VMap(p.maybe_mut, p.type_decl0, p.type_decl1))
 
     @_('')
     def maybe_mut(self, p):

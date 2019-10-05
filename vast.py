@@ -1,5 +1,5 @@
 from typing import List, Dict, Optional
-from vtypes import VType
+from vtypes import *
 from vstmt import Stmt
 
 
@@ -36,6 +36,70 @@ class ModuleDecl:
 
         return type
 
+    def _resolve_unresolved_type(self, unresolved):
+        """
+        :type unresolved: VUnresolvedType
+        :rtype: VType
+        """
+        # get the type
+        assert unresolved.type_name in self.named_types, f"Unknown type {unresolved.type_name}"
+        t = self.named_types[unresolved.type_name]
+
+        # Evolve mut
+        if unresolved.mut != t.mut:
+            t = t.copy()
+            t.mut = unresolved.mut
+            t = self.add_type(t)
+
+        # return the type
+        return t
+
+    def _resolve_type(self, type):
+        if isinstance(type, VRef) or isinstance(type, VArray) or isinstance(type, VOptional):
+            if isinstance(type.type, VUnresolvedType):
+                type.type = self._resolve_unresolved_type(type.type)
+            else:
+                self._resolve_type(type.type)
+        elif isinstance(type, VMap):
+            if isinstance(type.type0, VUnresolvedType):
+                type.type0 = self._resolve_unresolved_type(type.type0)
+            else:
+                self._resolve_type(type.type0)
+            if isinstance(type.type1, VUnresolvedType):
+                type.type1 = self._resolve_unresolved_type(type.type1)
+            else:
+                self._resolve_type(type.type1)
+        elif isinstance(type, VBool) or isinstance(type, VIntegerType):
+            # Ignore
+            return
+        else:
+            assert False, f"Unknown type type {type.__class__}"
+
+    def resolve_types(self):
+        # First go over sub types in types
+        for t in self.types:
+            self._resolve_type(t)
+
+        for func in self.functions:
+            func = self.functions[func]
+
+            # resolve params
+            for arg_name in func.params:
+                param = func.params[arg_name]
+                if isinstance(param, VUnresolvedType):
+                    func.params[arg_name] = self._resolve_unresolved_type(param)
+
+            # resolve return types
+            for i in range(len(func.return_types)):
+                ret_type = func.return_types[i]
+                if isinstance(ret_type, VUnresolvedType):
+                    func.return_types[i] = self._resolve_unresolved_type(ret_type)
+
+        # now we should have all the functions fully resolved, so we are ready for type checking
+        for func in self.functions:
+            func = self.functions[func]
+            func.root_scope.type_check(self, func.root_scope)
+
 
 class StmtCompound(Stmt):
 
@@ -45,6 +109,10 @@ class StmtCompound(Stmt):
         """
         self.parent = parent
         self.code = []  # type: List[Stmt]
+
+    def type_check(self, module, scope):
+        for c in self.code:
+            c.type_check(module, self)
 
 
 class FunctionDecl:
