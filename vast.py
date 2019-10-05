@@ -7,9 +7,8 @@ class ModuleDecl:
 
     def __init__(self):
         self.name = 'main'
-        self.functions = {}  # type: Dict[str, VFunction]
         self.types = []  # type: List[VType]
-        self.named_types = {}  # type: Dict[str, VType]
+        self.identifiers = {}  # type: Dict[str, VFunction or VType]
 
     def set_module_name(self, name):
         self.name = name
@@ -19,7 +18,7 @@ class ModuleDecl:
         :type name: str
         :type func: VFunction
         """
-        self.functions[name] = func
+        self.identifiers[name] = func
 
     def add_type(self, xtype, name=None):
         """
@@ -27,24 +26,32 @@ class ModuleDecl:
         :type name: str
         """
 
-        if xtype in self.types:
-            xtype = self.types[self.types.index(xtype)]
-        else:
-            self.types.append(xtype)
+        # Don't add unresolved types to the list of types
+        if not isinstance(xtype, VUnresolvedType):
+            if xtype in self.types:
+                xtype = self.types[self.types.index(xtype)]
+            else:
+                self.types.append(xtype)
 
+        # Add to identifiers if needed
         if name is not None:
-            self.named_types[name] = xtype
+            self.identifiers[name] = xtype
 
         return xtype
 
-    def _resolve_unresolved_type(self, unresolved):
+    def resolve_unresolved_type(self, unresolved):
         """
         :type unresolved: VUnresolvedType
         :rtype: VType
         """
         # get the type
-        assert unresolved.type_name in self.named_types, f"Unknown type {unresolved.type_name}"
-        t = self.named_types[unresolved.type_name]
+        assert unresolved.type_name in self.identifiers, f"Unknown type {unresolved.type_name}"
+        t = self.identifiers[unresolved.type_name]
+        assert isinstance(t, VType), f"{unresolved.type_name} is not a valid type"
+
+        # If the type we got was not resolved yet, resolve it
+        if isinstance(t, VUnresolvedType):
+            t = self.resolve_unresolved_type(t)
 
         # Evolve mut
         if unresolved.mut != t.mut:
@@ -55,52 +62,63 @@ class ModuleDecl:
         # return the type
         return t
 
-    def _resolve_type(self, type):
-        if isinstance(type, VRef) or isinstance(type, VArray) or isinstance(type, VOptional):
-            if isinstance(type.type, VUnresolvedType):
-                type.type = self._resolve_unresolved_type(type.type)
-            else:
-                self._resolve_type(type.type)
-        elif isinstance(type, VMap):
-            if isinstance(type.type0, VUnresolvedType):
-                type.type0 = self._resolve_unresolved_type(type.type0)
-            else:
-                self._resolve_type(type.type0)
-            if isinstance(type.type1, VUnresolvedType):
-                type.type1 = self._resolve_unresolved_type(type.type1)
-            else:
-                self._resolve_type(type.type1)
+    def _resolve_type(self, xtype):
+
+        # Handle unresolved types
+        if isinstance(xtype, VUnresolvedType):
+            xtype = self.resolve_unresolved_type(xtype)
+
+        # Handle types with one subtype
+        elif isinstance(xtype, VRef) or isinstance(xtype, VArray) or isinstance(xtype, VOptional):
+            xtype.type = self._resolve_type(xtype.type)
+
+        # Handle type with two subtypes
+        elif isinstance(xtype, VMap):
+            xtype.type0 = self._resolve_type(xtype.type0)
+            xtype.type1 = self._resolve_type(xtype.type1)
 
         # Function type resolving
-        elif isinstance(type, VFunctionType):
+        elif isinstance(xtype, VFunctionType):
 
             # Resolve the params
-            for i in range(len(type.params)):
-                param = type.params[i]
+            for i in range(len(xtype.params)):
+                param = xtype.params[i]
                 if isinstance(param, VUnresolvedType):
-                    type.params[i] = self._resolve_unresolved_type(param)
+                    xtype.params[i] = self._resolve_type(param)
 
             # resolve the arguments
-            for i in range(len(type.return_types)):
-                return_type = type.return_types[i]
+            for i in range(len(xtype.return_types)):
+                return_type = xtype.return_types[i]
                 if isinstance(return_type, VUnresolvedType):
-                    type.return_types[i] = self._resolve_unresolved_type(return_type)
+                    xtype.return_types[i] = self._resolve_type(return_type)
 
-        elif isinstance(type, VBool) or isinstance(type, VIntegerType):
-            # Ignore
-            return
+        # Handle builtin types
+        elif isinstance(xtype, VBool) or isinstance(xtype, VIntegerType):
+            pass
+
+        # Unknown types will get an assert so we don't forget stuff
         else:
-            assert False, f"Unknown type type {type.__class__}"
+            assert False, f"Unknown type type {xtype.__class__}"
+
+        return xtype
 
     def resolve_types(self):
         # First go over sub types in types
         for t in self.types:
             self._resolve_type(t)
 
-        # now we should have all the functions fully resolved, so we are ready for type checking
-        for func in self.functions:
-            func = self.functions[func]
-            func.root_scope.type_check(self, func.root_scope)
+        # Make sure we don't have any unresolved identifier types (can come from type aliasing)
+        for ident_name in self.identifiers:
+            ident = self.identifiers[ident_name]
+            if isinstance(ident, VUnresolvedType):
+                self.identifiers[ident_name] = self._resolve_type(ident)
+
+        # now we should have all the functions fully resolved,
+        # so we are ready for type checking
+        for ident in self.identifiers:
+            ident = self.identifiers[ident]
+            if isinstance(ident, VFunction):
+                ident.root_scope.type_check(self, ident.root_scope)
 
 
 class StmtCompound(Stmt):

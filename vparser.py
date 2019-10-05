@@ -114,11 +114,6 @@ class VParser(Parser):
         print('got name only param')
         return p.NAME, None
 
-
-    #self.current_function.add_param(p.NAME, p.type_decl)
-
-    # TODO: Support for a, b int
-
     @_('type_decl')
     def fn_ret(self, p):
         self.current_function.add_return_type(p.type_decl)
@@ -229,18 +224,7 @@ class VParser(Parser):
 
     @_('maybe_mut NAME')
     def type_decl(self, p):
-        if p.NAME in self.module_data.named_types:
-            type = self.module_data.named_types[p.NAME]
-
-            # Evolve mutability
-            if type.mut != p.maybe_mut:
-                type = type.copy()
-                type.mut = p.maybe_mut
-
-            # Add and return the type
-            return self.module_data.add_type(type)
-
-        # This is an unknown type for now, resolve it later
+        # This will get resolved once we do type checking
         return VUnresolvedType(p.maybe_mut, p.NAME)
 
     @_('maybe_mut "[" "]" type_decl')

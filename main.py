@@ -8,10 +8,11 @@ if __name__ == '__main__':
     parser = VParser()
 
     tokens = lexer.tokenize("""
-fn test(a, b mytype) {
+fn test(a, b type_b) (type_a) {
 }
 
-type mytype int
+type type_a type_b
+type type_b int
 """)
 
     module = parser.parse(tokens)  # type: ModuleDecl
