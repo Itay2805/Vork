@@ -1,6 +1,22 @@
 from typing import List, Dict, Optional
 from vtypes import *
-from vstmt import *
+
+
+class Expr:
+
+    def resolve_type(self, module, scope):
+        """
+        :type module: VModule
+        :type scope: StmtCompound
+        :rtype: VType
+        """
+        raise NotImplementedError
+
+
+class Stmt:
+
+    def type_check(self, module, scope):
+        raise NotImplementedError
 
 
 class VModule:
@@ -12,6 +28,11 @@ class VModule:
 
     def set_module_name(self, name):
         self.name = name
+
+    def get_identifier(self, name):
+        if name in self.identifiers:
+            return self.identifiers[name]
+        return None
 
     def add_function(self, name, func):
         """
@@ -81,10 +102,10 @@ class VModule:
         elif isinstance(xtype, VFunctionType):
 
             # Resolve the params
-            for i in range(len(xtype.params)):
-                param = xtype.params[i]
+            for i in range(len(xtype.param_types)):
+                param = xtype.param_types[i]
                 if isinstance(param, VUnresolvedType):
-                    xtype.params[i] = self._resolve_type(param)
+                    xtype.param_types[i] = self._resolve_type(param)
 
             # resolve the arguments
             for i in range(len(xtype.return_types)):
@@ -103,6 +124,8 @@ class VModule:
         return xtype
 
     def type_checking(self):
+        from vstmt import StmtReturn
+
         # First go over sub types in types
         for t in self.types:
             self._resolve_type(t)
@@ -140,6 +163,21 @@ class VModule:
                 ident.root_scope.type_check(self, ident.root_scope)
 
 
+
+class VVariable:
+
+    def __init__(self, name, type):
+        """
+        :type name: str`
+        :type type: VType
+        """
+        self.name = name
+        self.type = type
+
+    def __str__(self):
+        return f'{self.name} {self.type}'
+
+
 class StmtCompound(Stmt):
 
     def __init__(self, parent):
@@ -147,11 +185,17 @@ class StmtCompound(Stmt):
         :type parent: StmtCompound or VFunction
         """
         self.parent = parent
+        self.variables = {}  # type: Dict[str, VVariable]
         self.code = []  # type: List[Stmt]
 
     def type_check(self, module, scope):
         for c in self.code:
             c.type_check(module, self)
+
+    def get_identifier(self, name):
+        if name in self.variables:
+            return self.variables[name]
+        return self.parent.get_identifier(name)
 
     def get_function(self):
         """
@@ -172,6 +216,12 @@ class VFunction:
         self.param_names = []  # type: List[str]
         self.root_scope = StmtCompound(self)
         self.scope_stack = [self.root_scope]  # type: List[StmtCompound]
+
+    def get_identifier(self, name):
+        if name in self.param_names:
+            index = self.param_names.index(name)
+            return VVariable(self.param_names[index], self.type.param_types[index])
+        return None
 
     def current_scope(self):
         return self.scope_stack[-1]
@@ -203,7 +253,7 @@ class VFunction:
         self.type.return_types.append(type)
 
     def __str__(self):
-        params = ', '.join([f'{self.param_names[i]} {self.type.params[i]}' for i in range(len(self.param_names))])
+        params = ', '.join([f'{self.param_names[i]} {self.type.param_types[i]}' for i in range(len(self.param_names))])
         return_types = ', '.join([f'{arg}' for arg in self.type.return_types])
         if len(self.type.return_types) > 1:
             return_types = f'({return_types})'

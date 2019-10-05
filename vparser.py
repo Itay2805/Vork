@@ -235,6 +235,10 @@ class VParser(Parser):
     def expr(self, p):
         return ExprIntegerLiteral(p.NUMBER)
 
+    @_('NAME')
+    def expr(self, p):
+        return ExprIdentifierLiteral(p.NAME)
+
     @_('TRUE')
     def expr(self, p):
         return ExprBoolLiteral(True)

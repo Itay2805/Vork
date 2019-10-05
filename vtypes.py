@@ -265,7 +265,7 @@ class VFunctionType(VType):
 
     def __init__(self, mut):
         super(VFunctionType, self).__init__(mut)
-        self.params = []  # type: List[VType]
+        self.param_types = []  # type: List[VType]
         self.return_types = []  # type: List[VType]
 
     def add_param(self, xtype):
@@ -273,20 +273,20 @@ class VFunctionType(VType):
         :type type: VType
         """
         assert xtype is not None
-        self.params.append(xtype)
+        self.param_types.append(xtype)
 
     def __eq__(self, other):
         if isinstance(other, VFunctionType) and self.mut == other.mut:
             if self.return_types != other.return_types:
                 return False
-            if self.params != other.params:
+            if self.param_types != other.param_types:
                 return False
             return True
         return False
 
     def __str__(self):
         # Format params
-        params = ', '.join([str(param) for param in self.params])
+        params = ', '.join([str(param) for param in self.param_types])
 
         # Format return types
         return_types = ', '.join([f'{return_type}' for return_type in self.return_types])

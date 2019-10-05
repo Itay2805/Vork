@@ -1,12 +1,7 @@
 from vexpr import Expr
 from vtypes import *
 from typing import List
-
-
-class Stmt:
-
-    def type_check(self, module, scope):
-        raise NotImplementedError
+from vast import *
 
 
 class StmtExpr(Stmt):
@@ -18,6 +13,10 @@ class StmtExpr(Stmt):
         self.expr = expr
 
     def type_check(self, module, scope):
+        """
+        :type module: VModule
+        :type scope: StmtCompound
+        """
         self.expr.resolve_type(module, scope)
 
     def __str__(self):
