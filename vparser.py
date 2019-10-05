@@ -106,12 +106,10 @@ class VParser(Parser):
 
     @_('NAME type_decl')
     def fn_arg(self, p):
-        print('got typed param')
         return p.NAME, p.type_decl
 
     @_('NAME')
     def fn_arg(self, p):
-        print('got name only param')
         return p.NAME, None
 
     @_('type_decl')
