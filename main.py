@@ -9,6 +9,7 @@ if __name__ == '__main__':
 
     tokens = lexer.tokenize("""
 fn test(a, b type_b) (type_a) {
+    return 123
 }
 
 type type_a type_b
@@ -16,7 +17,7 @@ type type_b int
 """)
 
     module = parser.parse(tokens)  # type: ModuleDecl
-    module.resolve_types()
+    module.type_checking()
 
     dumper.default_dumper.instance_dump = ['vast', 'vtypes', 'vstmt', 'vexpr']
     dumper.dump(module)

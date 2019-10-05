@@ -306,3 +306,13 @@ def is_integer(xtype):
 
 def is_bool(xtype):
     return isinstance(xtype, VBool)
+
+
+def are_compatible_types(ret_type, type):
+    if ret_type == type:
+        return True
+
+    if isinstance(ret_type, VIntegerType) and isinstance(type, VIntegerType):
+        return True
+
+    return False

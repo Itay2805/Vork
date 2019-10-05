@@ -188,6 +188,10 @@ class VParser(Parser):
     # Misc statements
     #
 
+    @_('RETURN expr_list NEWLINE')
+    def stmt(self, p):
+        return StmtReturn(p.expr_list)
+
     @_('ASSERT expr NEWLINE')
     def stmt(self, p):
         return StmtAssert(p.expr)
@@ -199,6 +203,29 @@ class VParser(Parser):
     ###################################################################################################
     # Expressions
     ###################################################################################################
+
+    #
+    # Expr list
+    #
+
+    @_('expr_list "," expr')
+    def expr_list(self, p):
+        try:
+            if p.expr is None:
+                return p.expr_list
+            return p.expr_list + [p.expr]
+        except:
+            return []
+
+    @_('expr')
+    def expr_list(self, p):
+        if p.expr is None:
+            return []
+        return [p.expr]
+
+    @_('')
+    def expr_list(self, p):
+        return []
 
     #
     # Literals

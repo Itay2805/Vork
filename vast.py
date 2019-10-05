@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional
 from vtypes import *
-from vstmt import Stmt
+from vstmt import *
 
 
 class ModuleDecl:
@@ -102,7 +102,7 @@ class ModuleDecl:
 
         return xtype
 
-    def resolve_types(self):
+    def type_checking(self):
         # First go over sub types in types
         for t in self.types:
             self._resolve_type(t)
@@ -118,6 +118,25 @@ class ModuleDecl:
         for ident in self.identifiers:
             ident = self.identifiers[ident]
             if isinstance(ident, VFunction):
+                # Check the last statement is a return
+                # TODO: Make this smarter
+                if len(ident.root_scope.code) > 0:
+                    last_stmt = ident.root_scope.code[-1]
+                    if not isinstance(last_stmt, StmtReturn):
+                        if len(ident.type.return_types) == 0:
+                            # Just insert an empty return
+                            ident.root_scope.code.append(StmtReturn([]))
+                        else:
+                            assert False, f"Missing return statement at end of function `{ident.name}`"
+                else:
+                    # No statements, insert a return if possible
+                    if len(ident.type.return_types) == 0:
+                        # Just insert an empty return
+                        ident.root_scope.code.append(StmtReturn([]))
+                    else:
+                        assert False, f"Missing return statement at end of function `{ident.name}`"
+
+                # Perform type checking on function
                 ident.root_scope.type_check(self, ident.root_scope)
 
 
@@ -125,7 +144,7 @@ class StmtCompound(Stmt):
 
     def __init__(self, parent):
         """
-        :type parent: FunctionScope or VFunction
+        :type parent: StmtCompound or VFunction
         """
         self.parent = parent
         self.code = []  # type: List[Stmt]
@@ -133,6 +152,15 @@ class StmtCompound(Stmt):
     def type_check(self, module, scope):
         for c in self.code:
             c.type_check(module, self)
+
+    def get_function(self):
+        """
+        :rtype: VFunction
+        """
+        if isinstance(self.parent, VFunction):
+            return self.parent
+        else:
+            return self.parent.get_function()
 
 
 class VFunction:
