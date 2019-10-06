@@ -196,6 +196,10 @@ class VParser(Parser):
     # Misc statements
     #
 
+    @_('maybe_mut NAME ASSIGN_DECLARE expr')
+    def stmt(self, p):
+        return StmtDeclare(p.maybe_mut, p.NAME, p.expr)
+
     @_('RETURN expr_list NEWLINE')
     def stmt(self, p):
         return StmtReturn(p.expr_list)

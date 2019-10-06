@@ -16,6 +16,10 @@ class Expr:
 class Stmt:
 
     def type_check(self, module, scope):
+        """
+        :type module: VModule
+        :type scope: StmtCompound
+        """
         raise NotImplementedError
 
 
@@ -197,6 +201,14 @@ class StmtCompound(Stmt):
         if name in self.variables:
             return self.variables[name]
         return self.parent.get_identifier(name)
+
+    def add_variable(self, name, xtype):
+        """
+        :type name: str
+        :type xtype: VType
+        """
+        assert name not in self.variables, f"Already got variable with name `{name}`"
+        self.variables[name] = VVariable(name, xtype)
 
     def get_function(self):
         """

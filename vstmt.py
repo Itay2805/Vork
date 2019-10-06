@@ -58,3 +58,28 @@ class StmtReturn(Stmt):
     def __str__(self):
         exprs = ', '.join(map(str, self.exprs))
         return f'`return {exprs}`'
+
+
+class StmtDeclare(Stmt):
+
+    def __init__(self, mut, name, expr):
+        """
+        :type mut: bool
+        :type name: str
+        :type expr: Expr
+        """
+        self.mut_override = mut
+        self.name = name
+        self.expr = expr
+
+    def type_check(self, module, scope):
+        t = self.expr.resolve_type(module, scope)
+
+        # Override mutable if possible
+        assert not t.mut and not self.mut_override or not t.mut and self.mut_override, "Can not assign immutable type to a mutable variable"
+        t = t.copy()
+        t.mut = self.mut_override
+        t = module.add_type(t)
+
+        scope.add_variable(self.name, t)
+

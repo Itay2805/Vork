@@ -70,6 +70,8 @@ class VInterpreter:
                 exprs.append(self._eval_expression(e))
             self.call_stack.pop()
             return exprs
+        elif isinstance(stmt, StmtDeclare):
+            self.call_stack[-1].set_variable(stmt.name, self._eval_expression(stmt.expr))
         else:
             assert False, f"Unknown statement {stmt}"
 

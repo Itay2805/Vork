@@ -9,8 +9,10 @@ if __name__ == '__main__':
     parser = VParser()
 
     tokens = lexer.tokenize("""
-fn add(a, b int) {
-    assert a > b
+fn add(a, b int) (int) {
+    c := a + b
+    assert c == a + b
+    return c
 }
 """)
 

@@ -16,7 +16,22 @@ class ExprIntegerLiteral(Expr):
         :type scope: StmtCompound
         :rtype: VType
         """
-        return VUntypedInteger(True)
+
+        # quick way to get the number of needed bits
+        # we exclude the last bit in each type because the literal is signed
+        # TODO: maybe want to allow for unsigned literals as well
+        # TODO: maybe we want literals by default to be an int always?
+        bits = len(bin(self.num)[2:])
+        if bits < 8:
+            return VI8(False)
+        elif bits < 16:
+            return VI16(False)
+        elif bits < 32:
+            return VI16(False)
+        elif bits < 64:
+            return VInt(False)
+        elif bits < 128:
+            return VI128(False)
 
     def __str__(self):
         return str(self.num)
