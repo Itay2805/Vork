@@ -1,7 +1,7 @@
 # Vork
 
-Vork is intended to be an implementation of V (vlang)
+Vork will eventually be a fully fledged V implementation, including parser, compiler and interpreter (and maybe more
+will see how much time I will have)
 
-Currently this only consists of the Lexer and Parser, which are able to generate an AST of the given code. once the 
-parser will be finished and we will have a complete and valid AST, we can move to code generation (llvm probably)
-
+Right now it is only the parser and interpreter, once I get the interpreter to have all/most of V's features I will
+move on to work on a compiler.
