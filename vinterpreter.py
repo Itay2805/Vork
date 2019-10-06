@@ -70,10 +70,30 @@ class VInterpreter:
                 exprs.append(self._eval_expression(e))
             self.call_stack.pop()
             return exprs
+        elif isinstance(stmt, StmtIf):
+            expr = self._eval_expression(stmt.expr)
+            self.call_stack[-1].push_scope()
+
+            # Eval the if
+            if expr:
+                for s in stmt.stmt0:
+                    ret = self._eval_statement(s)
+                    if ret is not None:
+                        return ret
+
+            # Eval the else
+            else:
+                if stmt.stmt1 is not None:
+                    for s in stmt.stmt1:
+                        ret = self._eval_statement(s)
+                        if ret is not None:
+                            return ret
+
+            self.call_stack[-1].pop_scope()
         elif isinstance(stmt, StmtDeclare):
             self.call_stack[-1].set_variable(stmt.name, self._eval_expression(stmt.expr))
         else:
-            assert False, f"Unknown statement {stmt}"
+            assert False, f"Unknown statement {stmt.__class__.__name__}"
 
     def run_function(self, name, params=None):
         func = self.module.identifiers[name]

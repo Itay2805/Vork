@@ -175,6 +175,14 @@ class VParser(Parser):
         except:
             return []
 
+    @_('stmt_list',
+       '')
+    def opt_stmt_list(self, p):
+        try:
+            return p.stmt_list
+        except:
+            return []
+
     #
     # Compound statement
     #
@@ -193,8 +201,40 @@ class VParser(Parser):
             self.current_scope.code.append(p.stmt)
 
     #
+    # if statement
+    #
+
+    @_('stmt_if')
+    def stmt(self, p):
+        return p.stmt_if
+
+    @_('IF expr "{" opt_stmt_list "}" NEWLINE')
+    def stmt_if(self, p):
+        return StmtIf(p.expr, p.opt_stmt_list, None)
+
+    @_('IF expr "{" opt_stmt_list "}" stmt_else')
+    def stmt_if(self, p):
+        return StmtIf(p.expr, p.opt_stmt_list, p.stmt_else)
+
+    @_('ELSE "{" opt_stmt_list "}" NEWLINE')
+    def stmt_else(self, p):
+        return p.opt_stmt_list
+
+    @_('ELSE stmt_if')
+    def stmt_else(self, p):
+        return [p.stmt_if]
+
+    #
     # Misc statements
     #
+
+    @_('CONTINUE')
+    def stmt(self, p):
+        return StmtContinue()
+
+    @_('BREAK')
+    def stmt(self, p):
+        return StmtBreak()
 
     @_('maybe_mut NAME ASSIGN_DECLARE expr')
     def stmt(self, p):
