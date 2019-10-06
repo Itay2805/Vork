@@ -39,6 +39,7 @@ class VModule:
         :type name: str
         :type func: VFunction
         """
+        # TODO: I think function overloading is a thing, so we need to somehow take care of that
         self.identifiers[name] = func
 
     def add_type(self, xtype, name=None):

@@ -77,6 +77,13 @@ class ExprBinary(Expr):
 
         '>>': [VIntegerType],
         '<<': [VIntegerType],
+
+        '==': ([VIntegerType, VBool], VBool(False)),
+        '!=': ([VIntegerType, VBool], VBool(False)),
+        '>=': ([VIntegerType, VBool], VBool(False)),
+        '>':  ([VIntegerType, VBool], VBool(False)),
+        '<=': ([VIntegerType, VBool], VBool(False)),
+        '<':  ([VIntegerType, VBool], VBool(False)),
     }
 
     def __init__(self, op, expr0, expr1):
@@ -90,7 +97,6 @@ class ExprBinary(Expr):
         self.expr1 = expr1
 
     def resolve_type(self, module, scope):
-        # TODO: operator overloading
         t0 = self.expr0.resolve_type(module, scope)
         t1 = self.expr1.resolve_type(module, scope)
 
@@ -101,13 +107,24 @@ class ExprBinary(Expr):
         # Make sure we can use the operator on the given type
         good = False
         types = self.POSSIBLE_TYPES[self.op]
-        for type in types:
-            if isinstance(t0, type):
+
+        # Type override
+        got_type = t0
+        if isinstance(types, tuple):
+            got_type = types[1]
+            types = types[0]
+
+        # Check if fitting
+        for xtype in types:
+            if isinstance(t0, xtype):
                 good = True
                 break
+
+        # TODO: Check for operator overloading functions
+
         assert good, f"Binary operator `{self.op}` can't be used on `{t0.__class__.__name__}`"
 
-        return t0
+        return got_type
 
     def __str__(self):
         return f'{self.expr0} {self.op} {self.expr1}'

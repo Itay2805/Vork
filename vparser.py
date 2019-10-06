@@ -31,7 +31,7 @@ class VParser(Parser):
     precedence = (
         ('left', 'LOGICAL_OR'),
         ('left', 'LOGICAL_AND'),
-        # TODO: Comparison operators
+        ('left', 'EQUALS', 'NOT_EQUALS', '>', 'GREATER_EQUALS', '<', 'LESS_EQUALS'),
         ('left', '+', '-', '|', '^'),
         ('left', '*', '/', '%', 'RIGHT_SHIFT', 'LEFT_SHIFT', '&')
     )
@@ -249,6 +249,13 @@ class VParser(Parser):
        'expr "^" expr',
        'expr LEFT_SHIFT expr',
        'expr RIGHT_SHIFT expr',
+
+       'expr EQUALS expr',
+       'expr NOT_EQUALS expr',
+       'expr LESS_EQUALS expr',
+       'expr GREATER_EQUALS expr',
+       'expr "<" expr',
+       'expr ">" expr'
        )
     def expr(self, p):
         return ExprBinary(p[1], p.expr0, p.expr1)
