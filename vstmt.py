@@ -53,9 +53,7 @@ class StmtReturn(Stmt):
         for i in range(len(return_types)):
             rtype = return_types[i]
             expr_type = self.exprs[i].resolve_type(module, scope)
-            # TODO: Use special function to check return type compatability
-            # TODO: (taking into account stuff like mutability)
-            assert are_compatible_types(rtype, expr_type), f"return expected `{rtype}` for return at {i}, got `{expr_type}`"
+            assert check_return_type(rtype, expr_type), f"return expected `{rtype}` for return at {i}, got `{expr_type}`"
 
     def __str__(self):
         exprs = ', '.join(map(str, self.exprs))

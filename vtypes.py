@@ -35,15 +35,6 @@ class VIntegerType(VType):
         super(VIntegerType, self).__init__(mut)
 
 
-class VUntypedInteger(VIntegerType):
-
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VUntypedInteger, self).__init__(mut)
-
-
 #
 # The builtin V types
 #
@@ -308,11 +299,27 @@ def is_bool(xtype):
     return isinstance(xtype, VBool)
 
 
-def are_compatible_types(ret_type, type):
-    if ret_type == type:
+def check_return_type(ret_type, xtype):
+    """
+    :type ret_type: VType
+    :type xtype: VType
+    :rtype: bool
+    """
+
+    # Check if types are the same
+    if ret_type == xtype:
         return True
 
-    if isinstance(ret_type, VIntegerType) and isinstance(type, VIntegerType):
+    # Check mut -> not mut
+    xtype = xtype.copy()
+    xtype.mut = False
+    if ret_type == xtype:
+        return True
+
+    # Check if both are integer types
+    # TODO: Only allow integers with lower bits to higher bits and same sign
+    # TODO: Should probably make this cast the return expression or something
+    if isinstance(ret_type, VIntegerType) and isinstance(xtype, VIntegerType):
         return True
 
     return False

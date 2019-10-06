@@ -95,8 +95,8 @@ class ExprBinary(Expr):
         t1 = self.expr1.resolve_type(module, scope)
 
         # The types need to be the same
-        # TODO: Might wanna ignore mut
-        assert are_compatible_types(t0, t1), f'Binary operators must have the same type on both sides (got `{t0}` and `{t1}`)'
+        # TODO: have this add casts or something
+        assert check_return_type(t0, t1), f'Binary operators must have the same type on both sides (got `{t0}` and `{t1}`)'
 
         # Make sure we can use the operator on the given type
         good = False
