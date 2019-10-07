@@ -9,26 +9,23 @@ if __name__ == '__main__':
     parser = VParser()
 
     tokens = lexer.tokenize("""
-fn sub(a, b int) (int) {
-    if a < b {
-        assert false
-    } else if a == b {
-        return 1000
-    } else {
-        return a - b
-    }
-    
-    // dummy because type checking
-    return 0
+fn get_power(a int) (int, int) {
+    return a * a, a
+}
+
+fn do_it() (int, int) {
+    a, b := get_power(2)
+    return a, b
 }
 """)
 
     module = parser.parse(tokens)  # type: VModule
     module.type_checking()
 
-    interp = VInterpreter(module)
-    print(interp.run_function('sub', [3, 3]))
-
     dumper.default_dumper.instance_dump = ['vast', 'vtypes', 'vstmt', 'vexpr']
     dumper.dump(module)
+
+    interp = VInterpreter(module)
+    print(interp.eval_function('do_it', []))
+
 

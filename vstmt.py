@@ -1,4 +1,4 @@
-from vexpr import Expr
+from vexpr import *
 from vtypes import *
 from typing import List
 from vast import *
@@ -50,9 +50,13 @@ class StmtReturn(Stmt):
         func = scope.get_function()
         return_types = func.type.return_types  # type: List[VType]
         assert len(return_types) == len(self.exprs)
+
+        # TODO: Expending multiple return types
+
         for i in range(len(return_types)):
             rtype = return_types[i]
             expr_type = self.exprs[i].resolve_type(module, scope)
+            assert not isinstance(expr_type, list), "Expending function multiple results into a return is not supported yet"
             assert check_return_type(rtype, expr_type), f"return expected `{rtype}` for return at {i}, got `{expr_type}`"
 
     def __str__(self):
@@ -62,29 +66,44 @@ class StmtReturn(Stmt):
 
 class StmtDeclare(Stmt):
 
-    def __init__(self, mut, name, expr):
+    def __init__(self, names, expr):
         """
-        :type mut: bool
-        :type name: str
+        :type names: List[Tuple[boo, str]]
         :type expr: Expr
         """
-        self.mut_override = mut
-        self.name = name
+        self.names = names
         self.expr = expr
 
     def type_check(self, module, scope):
-        t = self.expr.resolve_type(module, scope)
+        tlist = self.expr.resolve_type(module, scope)
 
-        # Override mutable if possible
-        assert not t.mut and not self.mut_override or not t.mut and self.mut_override, "Can not assign immutable type to a mutable variable"
-        t = t.copy()
-        t.mut = self.mut_override
-        t = module.add_type(t)
+        # This can handle the multiple return values from a function call
+        if not isinstance(tlist, list):
+            tlist = [tlist]
 
-        scope.add_variable(self.name, t)
+        assert len(self.names) == len(tlist), f"Number of declarations does not match the number of return values (expected {len(tlist)}, got {len(self.names)})"
+
+        for i in range(len(self.names)):
+            name = self.names[i]
+            t = tlist[i]
+
+            mut_override = name[0]
+            name = name[1]
+
+            # Override mutable if possible
+            assert not t.mut and not mut_override or not t.mut and mut_override, "Can not assign immutable type to a mutable variable"
+            t = t.copy()
+            t.mut = mut_override
+            t = module.add_type(t)
+
+            scope.add_variable(name, t)
 
     def __str__(self):
-        return f'`{"mut " if self.mut_override else ""}{self.name} := {self.expr}`'
+        s = ''
+        for name in self.names:
+            s += f'{"mut " if name[0] else ""}{name[1]}'
+        s += f' := {self.expr}'
+        return s
 
 
 class StmtContinue(Stmt):

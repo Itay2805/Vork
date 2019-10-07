@@ -17,6 +17,18 @@ class VType:
         return copy(self)
 
 
+class VVoidType(VType):
+    
+    def __init__(self):
+        super(VVoidType, self).__init__(False)
+
+    def __eq__(self, other):
+        return False
+
+    def __str__(self):
+        return 'nothing'
+
+
 class VUnresolvedType(VType):
 
     def __init__(self, mut, type_name):

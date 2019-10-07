@@ -225,6 +225,23 @@ class VParser(Parser):
         return [p.stmt_if]
 
     #
+    # Variable declaration and assigning
+    #
+
+    @_('assign_name_list ASSIGN_DECLARE expr')
+    def stmt(self, p):
+        return StmtDeclare(p.assign_name_list, p.expr)
+
+    @_('assign_name_list "," maybe_mut NAME')
+    def assign_name_list(self, p):
+        return p.assign_name_list + [(p.maybe_mut, p.NAME)]
+
+    @_('maybe_mut NAME')
+    def assign_name_list(self, p):
+        return [(p.maybe_mut, p.NAME)]
+
+
+    #
     # Misc statements
     #
 
@@ -235,10 +252,6 @@ class VParser(Parser):
     @_('BREAK')
     def stmt(self, p):
         return StmtBreak()
-
-    @_('maybe_mut NAME ASSIGN_DECLARE expr')
-    def stmt(self, p):
-        return StmtDeclare(p.maybe_mut, p.NAME, p.expr)
 
     @_('RETURN expr_list NEWLINE')
     def stmt(self, p):
@@ -303,6 +316,14 @@ class VParser(Parser):
        )
     def expr(self, p):
         return ExprBinary(p[1], p.expr0, p.expr1)
+
+    #
+    # Misc
+    #
+
+    @_('expr "(" expr_list ")"')
+    def expr(self, p):
+        return ExprFunctionCall(p.expr, p.expr_list)
 
     #
     # Literals

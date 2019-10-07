@@ -145,3 +145,40 @@ class ExprBinary(Expr):
         return f'{self.expr0} {self.op} {self.expr1}'
 
 
+class ExprFunctionCall(Expr):
+
+    def __init__(self, func_expr, arguments):
+        """
+        :type func_expr: Expr
+        :type arguments: List[Expr]
+        """
+        self.func_expr = func_expr
+        self.arguments = arguments
+
+    def resolve_type(self, module, scope):
+        func = self.func_expr.resolve_type(module, scope)
+        assert isinstance(func, VFunctionType), f"function call expected function, got `{func}`"
+
+        assert len(self.arguments) == len(func.param_types), f"expected {len(func.param_types)} arguments, got {len(self.arguments)}"
+        for i in range(len(self.arguments)):
+            t0 = self.arguments[i].resolve_type(module, scope)
+            t1 = func.param_types[i]
+            assert check_return_type(t1, t0), f'function agument at `{i}` expected `{t1}`, got `{t0}`'
+
+        # If returns one type, return 1 type
+        if len(func.return_types) == 1:
+            return func.return_types[0]
+
+        # If does not return anything, return void type
+        elif len(func.return_types) == 0:
+            return VVoidType()
+
+        # If has multiple types just return them all
+        # TODO: make sure to handle list of types everywhere
+        else:
+            return func.return_types
+
+    def __str__(self):
+        args = ', '.join(map(str, self.arguments))
+        return f'{self.func_expr}({args})'
+
