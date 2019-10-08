@@ -1,4 +1,3 @@
-from vast import *
 from vstmt import *
 from vexpr import *
 from typing import *

@@ -1,7 +1,5 @@
-from typing import *
-from vast import *
-from vparser import *
-from vlexer import *
+from old.vparser import *
+from old.vlexer import *
 
 
 class VWorkspace:

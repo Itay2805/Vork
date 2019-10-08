@@ -1,5 +1,4 @@
 from vexpr import *
-from vtypes import *
 from typing import List
 from vast import *
 

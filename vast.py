@@ -1,6 +1,5 @@
-from typing import List, Dict, Optional
 from vtypes import *
-import os
+
 
 ########################################################################
 # Basic AST types

@@ -1,0 +1,140 @@
+///////////////////////////////////////////////////
+// V Grammar
+///////////////////////////////////////////////////
+// This is the grammar used by the parser to parse 
+// the V code. I am not sure how close it is to 
+// the official V compiler but that is what made
+// the most sense to me
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// module scope stuff 
+///////////////////////////////////////////////////
+
+start: module_item*
+
+?module_item: fn_decl
+           | module_decl
+           | _NEWLINE
+
+module_decl: "module" NAME ("." NAME)* _NEWLINE
+
+fn_decl: "fn" NAME "(" fn_params ")" fn_return "{" fn_stmt_list "}" _NEWLINE
+fn_params: [(NAME type_decl | NAME) ("," (NAME type_decl | NAME))*]
+fn_return: [type_decl | "(" type_decl ("," type_decl)+ ")"]
+fn_stmt_list: stmt*
+
+///////////////////////////////////////////////////
+// Statements
+///////////////////////////////////////////////////
+
+?stmt: expr _NEWLINE -> stmt_expr
+     | "return" [expr ("," expr)*] _NEWLINE -> stmt_return
+     | var_decl ("," var_decl)* ":=" expr _NEWLINE -> stmt_var_decl
+     | "assert" expr _NEWLINE -> stmt_assert
+     | _NEWLINE
+
+var_decl: _maybe_mut NAME
+
+///////////////////////////////////////////////////
+// Expressions
+///////////////////////////////////////////////////
+
+//************************************
+// the full expression precendence
+//************************************
+
+?expr: expr_postfix
+
+?expr_postfix: expr_unary "(" (expr ("," expr)*)? ")" -> expr_fn_call
+             | expr_unary "[" expr_unary "]" -> expr_index
+             | expr_unary "." expr_unary -> expr_member_access
+             | expr_unary "++" -> expr_post_inc
+             | expr_unary "--" -> expr_post_dec
+             | expr_unary "?" -> expr_unwrap_opt
+             | expr_unary
+
+?expr_unary: "-" expr_multiplicative -> expr_unary_minus
+           | "!" expr_multiplicative -> expr_logical_not
+           | "++" expr_multiplicative -> expr_pre_inc
+           | "--" expr_multiplicative -> expr_pre_dec
+           | expr_multiplicative
+
+?expr_multiplicative: expr_additive "*" expr_additive -> expr_mul
+                    | expr_additive "/" expr_additive -> expr_div
+                    | expr_additive "%" expr_additive -> expr_mod
+                    | expr_additive
+
+?expr_additive: expr_shift "+" expr_shift -> expr_add
+              | expr_shift "-" expr_shift -> expr_sub
+              | expr_shift
+
+?expr_shift: expr_relational "<<" expr_relational -> expr_left_shift
+           | expr_relational ">>" expr_relational -> expr_right_shigt
+           | expr_relational
+
+?expr_relational: expr_equality "<" expr_equality -> expr_less
+                | expr_equality ">" expr_equality -> expr_greater
+                | expr_equality ">=" expr_equality -> expr_greater_equals
+                | expr_equality "<=" expr_equality -> expr_less_equals
+                | expr_equality
+
+?expr_equality: expr_bitwise_and "==" expr_bitwise_and -> expr_equals
+              | expr_bitwise_and "!=" expr_bitwise_and -> expr_not_equals
+              | expr_bitwise_and
+
+?expr_bitwise_and: expr_bitwise_xor "&" expr_bitwise_xor -> expr_bitwise_and
+                 | expr_bitwise_xor
+
+?expr_bitwise_xor: expr_bitwise_or "^" expr_bitwise_or -> expr_bitwise_xor
+                 | expr_bitwise_or
+
+?expr_bitwise_or:  expr_logical_and "|" expr_logical_and -> expr_bitwise_or
+                | expr_logical_and
+
+?expr_logical_and: expr_logical_or "&&" expr_logical_or -> expr_logical_and
+                 | expr_logical_or
+
+?expr_logical_or: expr_atom "||" expr_atom -> expr_logical_or
+                | expr_atom
+
+?expr_atom: "(" expr ")"
+          | "none" -> const_none
+          | "false" -> const_false
+          | "true" -> const_true
+          | string
+          | number
+          | ident
+
+///////////////////////////////////////////////////
+// Literals
+///////////////////////////////////////////////////
+
+number: DEC_NUMBER
+string: STRING
+ident: NAME
+
+///////////////////////////////////////////////////
+// type declarations
+///////////////////////////////////////////////////
+
+?type_decl: _maybe_mut (type_ident | type_array | type_map | type_ref | type_opt)
+
+type_array: "[" "]" type_decl
+type_map: "map" "[" type_decl "]" type_decl 
+type_ref: "&" type_decl
+type_opt: "?" type_decl
+type_ident: NAME
+
+!_maybe_mut: "mut"?
+
+///////////////////////////////////////////////////
+// basic stuff
+///////////////////////////////////////////////////
+
+STRING : /[ubf]?r?("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
+NAME: /[a-zA-Z_]\w*/
+DEC_NUMBER: /0|[1-9]\d*/i
+_NEWLINE: /\n+/
+
+%ignore /[\t \f]+/

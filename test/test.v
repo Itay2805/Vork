@@ -1,10 +1,9 @@
 module main
 
-fn add(a, b int) int {
-    return a + b
+fn add(a, b mut int) int {
+    c := a + b
 }
 
 fn main() {
-    a := add(1, 2)
     print(a)
 }
