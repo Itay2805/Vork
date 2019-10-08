@@ -9,31 +9,31 @@ from vstmt import *
 
 class VParser(Parser):
     tokens = VLexer.tokens
+    debugfile = 'debug.out'
 
-    def __init__(self):
-        self.module_data = VModule()
-        self.current_function = VFunction()
+    def __init__(self, module):
+        """
+        :type module: VModule
+        """
+        self.module_data = module
+        self.current_function = VFunction(module)
         self.current_scope = self.current_function.current_scope()
 
-        # Add all builtin types
-        self.module_data.add_type(VI8(False), 'i8')
-        self.module_data.add_type(VI16(False), 'i16')
-        self.module_data.add_type(VInt(False), 'int')
-        self.module_data.add_type(VI64(False), 'i64')
-        self.module_data.add_type(VI128(False), 'i128')
-        self.module_data.add_type(VByte(False), 'byte')
-        self.module_data.add_type(VU32(False), 'u16')
-        self.module_data.add_type(VU32(False), 'u32')
-        self.module_data.add_type(VU64(False), 'u64')
-        self.module_data.add_type(VU128(False), 'u128')
-        self.module_data.add_type(VBool(False), 'bool')
-
     precedence = (
-        ('left', 'LOGICAL_OR'),
-        ('left', 'LOGICAL_AND'),
-        ('left', 'EQUALS', 'NOT_EQUALS', '>', 'GREATER_EQUALS', '<', 'LESS_EQUALS'),
-        ('left', '+', '-', '|', '^'),
-        ('left', '*', '/', '%', 'RIGHT_SHIFT', 'LEFT_SHIFT', '&')
+        ('right', 'ASSIGN_DECLARE'),  # Assignment TODO: More
+        # TODO: Conditional (expressional if)
+        ('left', 'LOGICAL_OR'),  # Logical OR
+        ('left', 'LOGICAL_AND'),  # Logical AND
+        ('left', '|'),  # Bitwise OR
+        ('left', '^'),  # Bitwise XOR
+        ('left', '&'),  # Bitwise AND
+        ('left', 'EQUALS', 'NOT_EQUALS'),  # Equality
+        ('left', '<', 'LESS_EQUALS', '>', 'GREATER_EQUALS'),  # Rational
+        ('left', 'RIGHT_SHIFT', 'LEFT_SHIFT'),  # Shift
+        ('left', '+', '-'),  # Additive
+        ('left', '*', '/', '%'),  # Multiplicative
+        # TODO: Unary
+        ('left', '('),  # Postfix
     )
 
     ###################################################################################################
@@ -84,7 +84,7 @@ class VParser(Parser):
         self.module_data.add_function(p.NAME, self.current_function)
 
         # reset current function
-        self.current_function = VFunction()
+        self.current_function = VFunction(self.module_data)
         self.current_scope = self.current_function.current_scope()
 
     @_('"{" stmt_list "}"')
@@ -131,7 +131,7 @@ class VParser(Parser):
 
     @_('fn_ret_list "," type_decl',
        'type_decl')
-    def fn_ret_list(self, p)
+    def fn_ret_list(self, p):
         self.current_function.add_return_type(p.type_decl)
 
     #
@@ -140,7 +140,7 @@ class VParser(Parser):
 
     @_('MODULE NAME NEWLINE')
     def module_item(self, p):
-        self.module_data.set_module_name(p.NAME)
+        pass
 
     @_('TYPE NAME type_decl NEWLINE')
     def module_item(self, p):
@@ -153,17 +153,6 @@ class VParser(Parser):
     #
     # Statement list
     #
-
-    @_('"{" stmt_list "}"')
-    def stmt_block(self, p):
-        self.current_scope = self.current_function.push_scope()
-        for stmt in p.stmt_list:
-            self.current_scope.code.append(stmt)
-        self.current_scope = self.current_function.pop_scope()
-
-    @_('"{" "}"')
-    def stmt_block(self, p):
-        pass
 
     @_('stmt_list stmt',
        'stmt')
@@ -228,7 +217,7 @@ class VParser(Parser):
     # Variable declaration and assigning
     #
 
-    @_('assign_name_list ASSIGN_DECLARE expr NEWLINE')
+    @_('assign_name_list ASSIGN_DECLARE expr NEWLINE %prec ASSIGN_DECLARE')
     def stmt(self, p):
         return StmtDeclare(p.assign_name_list, p.expr)
 
@@ -259,6 +248,10 @@ class VParser(Parser):
     @_('ASSERT expr NEWLINE')
     def stmt(self, p):
         return StmtAssert(p.expr)
+
+    @_('expr NEWLINE')
+    def stmt(self, p):
+        return StmtExpr(p.expr)
 
     @_('NEWLINE')
     def stmt(self, p):

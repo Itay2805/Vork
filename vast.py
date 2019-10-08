@@ -1,5 +1,10 @@
 from typing import List, Dict, Optional
 from vtypes import *
+import os
+
+########################################################################
+# Basic AST types
+########################################################################
 
 
 class Expr:
@@ -23,19 +28,68 @@ class Stmt:
         raise NotImplementedError
 
 
+class StmtCompound(Stmt):
+
+    def __init__(self, parent):
+        """
+        :type parent: StmtCompound or VFunction
+        """
+        self.parent = parent
+        self.variables = {}  # type: Dict[str, VVariable]
+        self.code = []  # type: List[Stmt]
+
+    def type_check(self, module, scope):
+        for c in self.code:
+            c.type_check(module, self)
+
+    def get_identifier(self, name):
+        if name in self.variables:
+            return self.variables[name]
+        return self.parent.get_identifier(name)
+
+    def add_variable(self, name, xtype):
+        """
+        :type name: str
+        :type xtype: VType
+        """
+        assert name not in self.variables, f"Already got variable with name `{name}`"
+        self.variables[name] = VVariable(name, xtype)
+
+    def get_function(self):
+        """
+        :rtype: VFunction
+        """
+        if isinstance(self.parent, VFunction):
+            return self.parent
+        else:
+            return self.parent.get_function()
+
+
+########################################################################
+# Important objects
+########################################################################
+
 class VModule:
 
     def __init__(self):
         self.name = 'main'
         self.types = []  # type: List[VType]
         self.identifiers = {}  # type: Dict[str, VFunction or VType]
+        self.type_checked = False
 
     def set_module_name(self, name):
         self.name = name
 
     def get_identifier(self, name):
+        # Check in the identifiers
         if name in self.identifiers:
             return self.identifiers[name]
+
+        # If there is builtin fall back to that
+        if 'builtin' in self.identifiers and self.identifiers['builtin'] != self:
+            return self.identifiers['builtin'].get_identifier(name)
+
+        # None found
         return None
 
     def add_function(self, name, func):
@@ -71,8 +125,7 @@ class VModule:
         :rtype: VType
         """
         # get the type
-        assert unresolved.type_name in self.identifiers, f"Unknown type {unresolved.type_name}"
-        t = self.identifiers[unresolved.type_name]
+        t = self.get_identifier(unresolved.type_name)
         assert isinstance(t, VType), f"{unresolved.type_name} is not a valid type"
 
         # If the type we got was not resolved yet, resolve it
@@ -131,6 +184,12 @@ class VModule:
     def type_checking(self):
         from vstmt import StmtReturn
 
+        # This should prevent us from type checking multiple times the same thing
+        # and prevent cyclic depends
+        if self.type_checked:
+            return
+        self.type_checked = True
+
         # First go over sub types in types
         for t in self.types:
             self._resolve_type(t)
@@ -138,8 +197,14 @@ class VModule:
         # Make sure we don't have any unresolved identifier types (can come from type aliasing)
         for ident_name in self.identifiers:
             ident = self.identifiers[ident_name]
+
+            # resolve unresolved types
             if isinstance(ident, VUnresolvedType):
                 self.identifiers[ident_name] = self._resolve_type(ident)
+
+            # do the module's type checking
+            elif isinstance(ident, VModule):
+                ident.type_checking()
 
         # now we should have all the functions fully resolved,
         # so we are ready for type checking
@@ -167,7 +232,12 @@ class VModule:
                 # Perform type checking on function
                 ident.root_scope.type_check(self, ident.root_scope)
 
-
+    def add_builtin_function(self, func):
+        """
+        :type func: VBuiltinFunction
+        """
+        func.type = self.add_type(func.type)
+        self.identifiers[func.name] = func
 
 class VVariable:
 
@@ -183,47 +253,22 @@ class VVariable:
         return f'{self.name} {self.type}'
 
 
-class StmtCompound(Stmt):
+class VBuiltinFunction:
 
-    def __init__(self, parent):
-        """
-        :type parent: StmtCompound or VFunction
-        """
-        self.parent = parent
-        self.variables = {}  # type: Dict[str, VVariable]
-        self.code = []  # type: List[Stmt]
+    def __init__(self, name, params, return_types):
+        self.name = name
 
-    def type_check(self, module, scope):
-        for c in self.code:
-            c.type_check(module, self)
-
-    def get_identifier(self, name):
-        if name in self.variables:
-            return self.variables[name]
-        return self.parent.get_identifier(name)
-
-    def add_variable(self, name, xtype):
-        """
-        :type name: str
-        :type xtype: VType
-        """
-        assert name not in self.variables, f"Already got variable with name `{name}`"
-        self.variables[name] = VVariable(name, xtype)
-
-    def get_function(self):
-        """
-        :rtype: VFunction
-        """
-        if isinstance(self.parent, VFunction):
-            return self.parent
-        else:
-            return self.parent.get_function()
+        self.type = VFunctionType(False)
+        for p in params:
+            self.type.add_param(VUnresolvedType(False, p))
+        self.type.return_types = [VUnresolvedType(False, p) for p in return_types]
 
 
 class VFunction:
 
-    def __init__(self):
+    def __init__(self, module):
         self.name = ''
+        self.module = module  # type: VModule
         self.pub = False
         self.type = VFunctionType(False)
         self.param_names = []  # type: List[str]
@@ -234,7 +279,7 @@ class VFunction:
         if name in self.param_names:
             index = self.param_names.index(name)
             return VVariable(self.param_names[index], self.type.param_types[index])
-        return None
+        return self.module.get_identifier(name)
 
     def current_scope(self):
         return self.scope_stack[-1]

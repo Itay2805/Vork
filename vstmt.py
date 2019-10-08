@@ -86,6 +86,7 @@ class StmtDeclare(Stmt):
         for i in range(len(self.names)):
             name = self.names[i]
             t = tlist[i]
+            default_assertion(t)
 
             mut_override = name[0]
             name = name[1]

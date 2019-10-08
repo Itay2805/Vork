@@ -2,6 +2,11 @@ from vtypes import *
 from vast import *
 
 
+def default_assertion(xtype):
+    assert not isinstance(xtype, list), "Expression can not take multiple return"
+    assert not isinstance(xtype, VVoidType), "Expression can not take void return"
+
+
 class ExprIntegerLiteral(Expr):
 
     def __init__(self, num):
@@ -63,7 +68,7 @@ class ExprIdentifierLiteral(Expr):
             ident = module.get_identifier(self.name)
         assert ident is not None, f"Unknown identifier `{self.name}`"
 
-        if isinstance(ident, VFunction):
+        if isinstance(ident, VFunction) or isinstance(ident, VBuiltinFunction):
             return ident.type
         elif isinstance(ident, VVariable):
             return ident.type
@@ -115,6 +120,9 @@ class ExprBinary(Expr):
         t0 = self.expr0.resolve_type(module, scope)
         t1 = self.expr1.resolve_type(module, scope)
 
+        default_assertion(t0)
+        default_assertion(t1)
+
         # The types need to be the same
         # TODO: have this add casts or something
         assert check_return_type(t0, t1), f'Binary operators must have the same type on both sides (got `{t0}` and `{t1}`)'
@@ -158,10 +166,12 @@ class ExprFunctionCall(Expr):
     def resolve_type(self, module, scope):
         func = self.func_expr.resolve_type(module, scope)
         assert isinstance(func, VFunctionType), f"function call expected function, got `{func}`"
+        default_assertion(func)
 
         assert len(self.arguments) == len(func.param_types), f"expected {len(func.param_types)} arguments, got {len(self.arguments)}"
         for i in range(len(self.arguments)):
             t0 = self.arguments[i].resolve_type(module, scope)
+            default_assertion(t0)
             t1 = func.param_types[i]
             assert check_return_type(t1, t0), f'function agument at `{i}` expected `{t1}`, got `{t0}`'
 

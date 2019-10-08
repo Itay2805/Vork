@@ -30,8 +30,9 @@ class CallStackFrame:
                 return self.scope_stack[i][name]
 
         # check in module level
-        if name in self.module.identifiers:
-            return self.module.identifiers[name]
+        n = self.module.get_identifier(name)
+        if n is not None:
+            return n
 
         assert False, f"unknown variable (this should not happen...) ({name})"
 
@@ -135,15 +136,22 @@ class VInterpreter:
         :param func: VFunction
         :param params: List[Any]
         """
-        assert isinstance(func, VFunction), f"Expected function, got {func}"
-        self.call_stack.append(CallStackFrame(func, self.module))
-        self.call_stack[-1].push_scope()
 
-        # TODO: Check params
-        for i in range(len(func.param_names)):
-            self.call_stack[-1].set_variable(func.param_names[i], params[i])
+        if isinstance(func, VFunction):
+            self.call_stack.append(CallStackFrame(func, self.module))
+            self.call_stack[-1].push_scope()
 
-        return self._eval_statement(func.root_scope)
+            # TODO: Check params
+            for i in range(len(func.param_names)):
+                self.call_stack[-1].set_variable(func.param_names[i], params[i])
+
+            return self._eval_statement(func.root_scope)
+        elif isinstance(func, VBuiltinFunction):
+            if func.name != 'print':
+                print(params)
+            assert False, f"Unknown builtin function `{func.name}`"
+        else:
+            assert False, f"Unknown function `{func}`"
 
     def eval_function(self, name, params=None):
-        return self._eval_function(self.module.identifiers[name], params)
+        return self._eval_function(self.module.get_identifier(name), params)
