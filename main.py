@@ -9,13 +9,12 @@ if __name__ == '__main__':
     parser = VParser()
 
     tokens = lexer.tokenize("""
-fn get_power(a int) (int, int) {
-    return a * a, a
+fn get_power(a int) int {
+    return a * a
 }
 
-fn do_it() (int, int) {
-    a, b := get_power(2)
-    return a, b
+fn do_it() int {
+    return get_power(2) / 2
 }
 """)
 

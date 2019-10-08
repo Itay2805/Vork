@@ -56,7 +56,7 @@ class VParser(Parser):
     # Function definition
     #
 
-    @_('maybe_pub FN NAME "(" fn_args ")" fn_ret fn_block')
+    @_('maybe_pub FN NAME "(" fn_args ")" fn_ret fn_block NEWLINE')
     def module_item(self, p):
         # set the properties of the function and add it
         self.current_function.pub = p.maybe_pub
@@ -131,18 +131,18 @@ class VParser(Parser):
 
     @_('fn_ret_list "," type_decl',
        'type_decl')
-    def fn_ret_list(self, p):
+    def fn_ret_list(self, p)
         self.current_function.add_return_type(p.type_decl)
 
     #
     # Misc
     #
 
-    @_('MODULE NAME')
+    @_('MODULE NAME NEWLINE')
     def module_item(self, p):
         self.module_data.set_module_name(p.NAME)
 
-    @_('TYPE NAME type_decl')
+    @_('TYPE NAME type_decl NEWLINE')
     def module_item(self, p):
         self.module_data.add_type(p.type_decl, p.NAME)
 
@@ -228,7 +228,7 @@ class VParser(Parser):
     # Variable declaration and assigning
     #
 
-    @_('assign_name_list ASSIGN_DECLARE expr')
+    @_('assign_name_list ASSIGN_DECLARE expr NEWLINE')
     def stmt(self, p):
         return StmtDeclare(p.assign_name_list, p.expr)
 
@@ -239,7 +239,6 @@ class VParser(Parser):
     @_('maybe_mut NAME')
     def assign_name_list(self, p):
         return [(p.maybe_mut, p.NAME)]
-
 
     #
     # Misc statements
