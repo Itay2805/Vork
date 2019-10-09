@@ -19,8 +19,9 @@ start: module_item*
 
 module_decl: "module" NAME ("." NAME)* _NEWLINE
 
-fn_decl: "fn" NAME "(" fn_params ")" fn_return "{" fn_stmt_list "}" _NEWLINE
-fn_params: [(NAME type_decl | NAME) ("," (NAME type_decl | NAME))*]
+fn_decl: maybe_pub "fn" NAME "(" fn_params ")" fn_return "{" fn_stmt_list "}" _NEWLINE
+fn_params: [fn_param ("," fn_param)*]
+fn_param: NAME type_decl | NAME
 fn_return: [type_decl | "(" type_decl ("," type_decl)+ ")"]
 fn_stmt_list: stmt*
 
@@ -30,11 +31,12 @@ fn_stmt_list: stmt*
 
 ?stmt: expr _NEWLINE -> stmt_expr
      | "return" [expr ("," expr)*] _NEWLINE -> stmt_return
-     | var_decl ("," var_decl)* ":=" expr _NEWLINE -> stmt_var_decl
+     | var_decl_names ":=" expr _NEWLINE -> stmt_var_decl
      | "assert" expr _NEWLINE -> stmt_assert
      | _NEWLINE
 
-var_decl: _maybe_mut NAME
+var_decl: maybe_mut NAME
+var_decl_names: var_decl ("," var_decl)*
 
 ///////////////////////////////////////////////////
 // Expressions
@@ -49,54 +51,55 @@ var_decl: _maybe_mut NAME
 ?expr_postfix: expr_unary "(" (expr ("," expr)*)? ")" -> expr_fn_call
              | expr_unary "[" expr_unary "]" -> expr_index
              | expr_unary "." expr_unary -> expr_member_access
-             | expr_unary "++" -> expr_post_inc
-             | expr_unary "--" -> expr_post_dec
-             | expr_unary "?" -> expr_unwrap_opt
+             | expr_unary _op_postfix -> expr_postfix
              | expr_unary
 
-?expr_unary: "-" expr_multiplicative -> expr_unary_minus
-           | "!" expr_multiplicative -> expr_logical_not
-           | "++" expr_multiplicative -> expr_pre_inc
-           | "--" expr_multiplicative -> expr_pre_dec
+?expr_unary: _op_unary expr_multiplicative -> expr_unary
            | expr_multiplicative
 
-?expr_multiplicative: expr_additive "*" expr_additive -> expr_mul
-                    | expr_additive "/" expr_additive -> expr_div
-                    | expr_additive "%" expr_additive -> expr_mod
+?expr_multiplicative: expr_additive _op_multiplicative expr_additive -> expr_binary
                     | expr_additive
 
-?expr_additive: expr_shift "+" expr_shift -> expr_add
-              | expr_shift "-" expr_shift -> expr_sub
+?expr_additive: expr_shift _op_additive expr_shift -> expr_binary
               | expr_shift
 
-?expr_shift: expr_relational "<<" expr_relational -> expr_left_shift
-           | expr_relational ">>" expr_relational -> expr_right_shigt
+?expr_shift: expr_relational _op_shift expr_relational -> expr_binary
            | expr_relational
 
-?expr_relational: expr_equality "<" expr_equality -> expr_less
-                | expr_equality ">" expr_equality -> expr_greater
-                | expr_equality ">=" expr_equality -> expr_greater_equals
-                | expr_equality "<=" expr_equality -> expr_less_equals
+?expr_relational: expr_equality _op_relational expr_equality -> expr_binary
                 | expr_equality
 
-?expr_equality: expr_bitwise_and "==" expr_bitwise_and -> expr_equals
-              | expr_bitwise_and "!=" expr_bitwise_and -> expr_not_equals
+?expr_equality: expr_bitwise_and _op_equality expr_bitwise_and -> expr_binary
               | expr_bitwise_and
 
-?expr_bitwise_and: expr_bitwise_xor "&" expr_bitwise_xor -> expr_bitwise_and
+?expr_bitwise_and: expr_bitwise_xor _op_bitwise_and expr_bitwise_xor -> expr_binary
                  | expr_bitwise_xor
 
-?expr_bitwise_xor: expr_bitwise_or "^" expr_bitwise_or -> expr_bitwise_xor
+?expr_bitwise_xor: expr_bitwise_or _op_bitwise_xor expr_bitwise_or -> expr_binary
                  | expr_bitwise_or
 
-?expr_bitwise_or:  expr_logical_and "|" expr_logical_and -> expr_bitwise_or
+?expr_bitwise_or:  expr_logical_and _op_bitwise_or expr_logical_and -> expr_binary
                 | expr_logical_and
 
-?expr_logical_and: expr_logical_or "&&" expr_logical_or -> expr_logical_and
+?expr_logical_and: expr_logical_or _op_logical_and expr_logical_or -> expr_binary
                  | expr_logical_or
 
-?expr_logical_or: expr_atom "||" expr_atom -> expr_logical_or
+?expr_logical_or: expr_atom _op_logical_or expr_atom -> expr_binary
                 | expr_atom
+
+// all the operators
+!_op_postfix: ("++"|"--")
+!_op_unary: ("-"|"!"|"++"|"--")
+!_op_multiplicative: ("*"|"/"|"%")
+!_op_additive: ("+"|"-")
+!_op_shift: ("<<"|">>")
+!_op_relational: (">"|">="|"<="|"<")
+!_op_equality: ("=="|"!=")
+!_op_bitwise_xor: "^"
+!_op_bitwise_and: "&"
+!_op_bitwise_or: "|"
+!_op_logical_and: "&&"
+!_op_logical_or: "||"
 
 ?expr_atom: "(" expr ")"
           | "none" -> const_none
@@ -118,15 +121,20 @@ ident: NAME
 // type declarations
 ///////////////////////////////////////////////////
 
-?type_decl: _maybe_mut (type_ident | type_array | type_map | type_ref | type_opt)
+?type_decl: type_ident
+          | type_array
+          | type_map
+          | type_ref
+          | type_opt
 
-type_array: "[" "]" type_decl
-type_map: "map" "[" type_decl "]" type_decl 
-type_ref: "&" type_decl
-type_opt: "?" type_decl
-type_ident: NAME
+type_array: maybe_mut "[" "]" type_decl
+type_map: maybe_mut "map" "[" type_decl "]" type_decl
+type_ref: maybe_mut "&" type_decl
+type_opt: maybe_mut "?" type_decl
+type_ident: maybe_mut NAME
 
-!_maybe_mut: "mut"?
+!maybe_pub: "pub"?
+!maybe_mut: "mut"?
 
 ///////////////////////////////////////////////////
 // basic stuff

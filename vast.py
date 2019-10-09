@@ -140,7 +140,7 @@ class VModule:
         # return the type
         return t
 
-    def _resolve_type(self, xtype):
+    def resolve_type(self, xtype):
 
         # Handle unresolved types
         if isinstance(xtype, VUnresolvedType):
@@ -148,12 +148,12 @@ class VModule:
 
         # Handle types with one subtype
         elif isinstance(xtype, VRef) or isinstance(xtype, VArray) or isinstance(xtype, VOptional):
-            xtype.type = self._resolve_type(xtype.type)
+            xtype.type = self.resolve_type(xtype.type)
 
         # Handle type with two subtypes
         elif isinstance(xtype, VMap):
-            xtype.type0 = self._resolve_type(xtype.type0)
-            xtype.type1 = self._resolve_type(xtype.type1)
+            xtype.type0 = self.resolve_type(xtype.type0)
+            xtype.type1 = self.resolve_type(xtype.type1)
 
         # Function type resolving
         elif isinstance(xtype, VFunctionType):
@@ -161,14 +161,12 @@ class VModule:
             # Resolve the params
             for i in range(len(xtype.param_types)):
                 param = xtype.param_types[i]
-                if isinstance(param, VUnresolvedType):
-                    xtype.param_types[i] = self._resolve_type(param)
+                xtype.param_types[i] = self.resolve_type(param)
 
             # resolve the arguments
             for i in range(len(xtype.return_types)):
                 return_type = xtype.return_types[i]
-                if isinstance(return_type, VUnresolvedType):
-                    xtype.return_types[i] = self._resolve_type(return_type)
+                xtype.return_types[i] = self.resolve_type(return_type)
 
         # Handle builtin types
         elif isinstance(xtype, VBool) or isinstance(xtype, VIntegerType):
@@ -183,53 +181,50 @@ class VModule:
     def type_checking(self):
         from vstmt import StmtReturn
 
-        # This should prevent us from type checking multiple times the same thing
-        # and prevent cyclic depends
-        if self.type_checked:
-            return
-        self.type_checked = True
+        # We start by doing type resolving on all the module level stuff
+        for name in self.identifiers:
+            ident = self.identifiers[name]
 
-        # First go over sub types in types
-        for t in self.types:
-            self._resolve_type(t)
+            # If it is a function just resolve the signature also will
+            # add the parameters as variables in the root scope
+            if isinstance(ident, VFunction):
+                ident.type = self.resolve_type(ident.type)
+                for i in range(len(ident.param_names)):
+                    ident.root_scope.add_variable(ident.param_names[i], ident.type.param_types[i])
 
-        # Make sure we don't have any unresolved identifier types (can come from type aliasing)
-        for ident_name in self.identifiers:
-            ident = self.identifiers[ident_name]
+            # For builtin functions only need to resovle the signature
+            elif isinstance(ident, VBuiltinFunction):
+                ident.type = self.resolve_type(ident.type)
 
-            # resolve unresolved types
-            if isinstance(ident, VUnresolvedType):
-                self.identifiers[ident_name] = self._resolve_type(ident)
+            # If this is a type make sure it is resolved
+            elif isinstance(ident, VType):
+                self.identifiers[name] = self.resolve_type(ident)
 
-            # do the module's type checking
+            # For imported modules do type checking
             elif isinstance(ident, VModule):
                 ident.type_checking()
 
-        # now we should have all the functions fully resolved,
-        # so we are ready for type checking
-        for ident in self.identifiers:
-            ident = self.identifiers[ident]
+        # Now the module level should be fine, we can do type checking on the
+        # statement level
+        for name in self.identifiers:
+            ident = self.identifiers[name]
             if isinstance(ident, VFunction):
-                # Check the last statement is a return
-                # TODO: Make this smarter
-                if len(ident.root_scope.code) > 0:
-                    last_stmt = ident.root_scope.code[-1]
-                    if not isinstance(last_stmt, StmtReturn):
-                        if len(ident.type.return_types) == 0:
-                            # Just insert an empty return
-                            ident.root_scope.code.append(StmtReturn([]))
-                        else:
-                            assert False, f"Missing return statement at end of function `{ident.name}`"
-                else:
-                    # No statements, insert a return if possible
-                    if len(ident.type.return_types) == 0:
-                        # Just insert an empty return
-                        ident.root_scope.code.append(StmtReturn([]))
-                    else:
-                        assert False, f"Missing return statement at end of function `{ident.name}`"
-
-                # Perform type checking on function
+                # Do normal type checking
                 ident.root_scope.type_check(self, ident.root_scope)
+
+                # TODO: A bit more advanced return checks
+
+                # Check return types
+                if len(ident.type.return_types) > 0:
+                    found = False
+                    for stmt in ident.root_scope.code:
+                        if isinstance(stmt, StmtReturn):
+                            found = True
+                            break
+                    assert found, f"No return statement in main scope of function `{ident.name}`"
+                elif len(ident.root_scope.code) == 0 or not isinstance(ident.root_scope.code[-1], StmtReturn):
+                    # Insert a return because this function has no return arguments and last item is not a return
+                    ident.root_scope.code.append(StmtReturn([]))
 
     def add_builtin_function(self, func):
         """
@@ -237,6 +232,7 @@ class VModule:
         """
         func.type = self.add_type(func.type)
         self.identifiers[func.name] = func
+
 
 class VVariable:
 
@@ -265,11 +261,11 @@ class VBuiltinFunction:
 
 class VFunction:
 
-    def __init__(self, module):
+    def __init__(self):
         self.name = ''
-        self.module = module  # type: VModule
         self.pub = False
         self.type = VFunctionType(False)
+        self.module = None  # type: VModule or None
         self.param_names = []  # type: List[str]
         self.root_scope = StmtCompound(self)
         self.scope_stack = [self.root_scope]  # type: List[StmtCompound]
@@ -280,28 +276,14 @@ class VFunction:
             return VVariable(self.param_names[index], self.type.param_types[index])
         return self.module.get_identifier(name)
 
-    def current_scope(self):
-        return self.scope_stack[-1]
-
-    def push_scope(self):
-        current = self.current_scope()
-        new_scope = StmtCompound(current)
-        current.code.append(new_scope)
-        self.scope_stack.append(new_scope)
-        return new_scope
-
-    def pop_scope(self):
-        self.scope_stack.pop()
-        return self.current_scope()
-
-    def add_param(self, name, type):
+    def add_param(self, name, xtype):
         """
         :type name: str
-        :type type: VType
+        :type xtype: VType
         """
         assert name not in self.param_names
         self.param_names.append(name)
-        self.type.add_param(type)
+        self.type.add_param(xtype)
 
     def add_return_type(self, type):
         """

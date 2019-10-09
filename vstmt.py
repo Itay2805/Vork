@@ -67,7 +67,7 @@ class StmtDeclare(Stmt):
 
     def __init__(self, names, expr):
         """
-        :type names: List[Tuple[boo, str]]
+        :type names: List[Tuple[bool, str]]
         :type expr: Expr
         """
         self.names = names

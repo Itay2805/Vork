@@ -25,7 +25,7 @@ class CallStackFrame:
     def get_variable(self, name):
         # Check in call stack level
         for i in reversed(range(len(self.scope_stack))):
-            if name in self.scope_stack[i]:
+            if name in self.scope_stack[i] and self.scope_stack[i][name] is not None:
                 return self.scope_stack[i][name]
 
         # check in module level
@@ -124,6 +124,9 @@ class VInterpreter:
             expr = stmt.expr
             results = self._eval_expression(expr)
 
+            if not isinstance(results, list):
+                results = [results]
+
             for i in range(len(stmt.names)):
                 self.call_stack[-1].set_variable(stmt.names[i][1], results[i])
 
@@ -136,6 +139,9 @@ class VInterpreter:
         :param params: List[Any]
         """
 
+        if params is None:
+            params = []
+
         if isinstance(func, VFunction):
             self.call_stack.append(CallStackFrame(func, self.module))
             self.call_stack[-1].push_scope()
@@ -146,9 +152,10 @@ class VInterpreter:
 
             return self._eval_statement(func.root_scope)
         elif isinstance(func, VBuiltinFunction):
-            if func.name != 'print':
-                print(params)
-            assert False, f"Unknown builtin function `{func.name}`"
+            if func.name == 'print':
+                print(params[0])
+            else:
+                assert False, f"Unknown builtin function `{func.name}`"
         else:
             assert False, f"Unknown function `{func}`"
 

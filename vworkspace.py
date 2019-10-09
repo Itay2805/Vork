@@ -1,6 +1,5 @@
-from old.vparser import *
-from old.vlexer import *
-
+from vparser import *
+import os
 
 class VWorkspace:
 
@@ -18,8 +17,8 @@ class VWorkspace:
 
         self._scan_files()
 
-        # TODO: redesign the parser so it won't have an internal state?
-        self.lexer = VLexer()
+        self.parser = VParser
+        self.transfomer = VAstTransformer(self)
 
     def _scan_files(self):
         # In each module folder
@@ -31,6 +30,9 @@ class VWorkspace:
                     if filename.lower().endswith(".v"):
                         # read it
                         with open(os.path.join(path, filename), 'r') as f:
+
+                            got = False
+
                             # Search for module
                             for line in f.readlines():
                                 # got module name, add it
@@ -40,9 +42,14 @@ class VWorkspace:
                                         if module_name not in self.module_files:
                                             self.module_files[module_name] = []
                                         self.module_files[module_name].append(os.path.join(path, filename))
+                                        got = True
                                         break
                                     finally:
                                         pass
+
+                            # If no module name found assume main
+                            if not got:
+                                self.module_files['main'].append(os.path.join(path, filename))
 
         # Handle the builtin module
         if 'builtin' not in self.module_files:
@@ -68,11 +75,17 @@ class VWorkspace:
         # Make sure we ignore the builtin as a root module
         self.root_module = None
 
-    def load_module(self, name):
+    def load_module(self, name: str) -> VModule:
         """
-        :type name: str
-        :rtype: VModule
+        Load a module
+
+        This will parse and transform all the source files related to the module
+        and populate their module, note that this will not do type checking
+
+        :param name: The module to load
+        :returns: The loaded module
         """
+        # Check if already has a reference to the module
         assert name in self.module_files, f"module `{name}` does not exists in workspace"
         if name in self.modules:
             return self.modules[name]
@@ -82,19 +95,27 @@ class VWorkspace:
         module.set_module_name(name)
         self.modules[name] = module
 
+        # Set the root module
         if self.root_module is None:
             self.root_module = module
 
-        module.identifiers['builtin'] = self.modules['builtin']
+        # If not builtin import builtin automatically
+        if module.name != 'builtin':
+            module.identifiers['builtin'] = self.load_module('builtin')
 
         # Create parser and parse each file
-        parser = VParser(module)
         for file in self.module_files[name]:
             with open(file, 'r') as f:
-                tokens = self.lexer.tokenize(f.read())
-                parser.parse(tokens)
+                parse_tree = self.parser.parse(f.read())
+                self.transfomer.transform(parse_tree)
 
         return module
 
     def type_check(self):
+        """
+        Run the type checking
+
+        This is going to start from the root module, and because we will get into VModules
+        imported into the root module, it should type check everything which is relevant
+        """
         self.root_module.type_checking()

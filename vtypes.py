@@ -38,6 +38,9 @@ class VUnresolvedType(VType):
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.mut == other.mut and self.type_name == other.type_name
 
+    def __str__(self):
+        return f'{self.type_name}'
+
 
 class VIntegerType(VType):
     def __init__(self, mut):

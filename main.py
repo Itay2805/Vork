@@ -1,8 +1,13 @@
-from lark import *
-from vast import *
+from vworkspace import VWorkspace
+from vinterpreter import VInterpreter
 
+import argparse
 
 if __name__ == '__main__':
-    v_parser = Lark.open('v.lark')
-    parse_tree = v_parser.parse(open('./test/test.v').read())  # type: Tree
-    print(parse_tree.pretty())
+    # TODO: Proper shit
+    workspace = VWorkspace(['./test'])
+    module = workspace.load_module('main')
+    workspace.type_check()
+
+    interpreter = VInterpreter(module)
+    interpreter.eval_function('main')

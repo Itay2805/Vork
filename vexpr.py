@@ -27,15 +27,15 @@ class ExprIntegerLiteral(Expr):
         # TODO: maybe we want literals by default to be an int always?
         bits = len(bin(self.num)[2:])
         if bits < 8:
-            return VI8(False)
+            return module.resolve_type(VI8(False))
         elif bits < 16:
-            return VI16(False)
+            return module.resolve_type(VI16(False))
         elif bits < 32:
-            return VI16(False)
+            return module.resolve_type(VI16(False))
         elif bits < 64:
-            return VInt(False)
+            return module.resolve_type(VInt(False))
         elif bits < 128:
-            return VI128(False)
+            return module.resolve_type(VI128(False))
 
     def __str__(self):
         return str(self.num)
@@ -50,7 +50,7 @@ class ExprBoolLiteral(Expr):
         self.b = b
 
     def resolve_type(self, module, scope):
-        return VBool(False)
+        return module.resolve_type(VBool(False))
 
     def __str__(self):
         return str(self.b).lower()
