@@ -1,11 +1,17 @@
 module main
 
-fn add(a, b int) int {
-    c := a + b
-    return c
+fn do_something(a, b int) int {
+    if a > 10 {
+        return 0
+    } else if(b > 10) {
+        return 1
+    } else {
+        return 2
+    }
+    return 0
 }
 
 fn main() {
-    c := add(12, 12)
+    c := do_something(5, 5)
     print(c)
 }

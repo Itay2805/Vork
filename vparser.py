@@ -84,14 +84,6 @@ class VAstTransformer(Transformer):
     def fn_return(self, *return_types):
         return list(return_types)
 
-    def fn_stmt_list(self, *stmts):
-        stmts_lst = []
-        # TODO: From some reason sometimes stmt is inserted, will need to figure why
-        for stmt in stmts:
-            if isinstance(stmt, Stmt):
-                stmts_lst.append(stmt)
-        return stmts_lst
-
     ############################################################
     # Statements
     ############################################################
@@ -114,6 +106,15 @@ class VAstTransformer(Transformer):
 
     def var_decl(self, mut, name):
         return mut, str(name)
+
+    def stmt_if(self, expr, stmt_list, *stmt_else):
+        return StmtIf(expr, stmt_list, stmt_else[0] if len(stmt_else) > 0 else None)
+
+    def stmt_else(self, stmt_list):
+        return stmt_list
+
+    def stmt_else_if(self, stmt_if):
+        return [stmt_if]
 
     ############################################################
     # Expressions
@@ -157,6 +158,14 @@ class VAstTransformer(Transformer):
 
     def maybe_pub(self, *args):
         return len(args) != 0
+
+    def stmt_list(self, *stmts):
+        stmts_lst = []
+        # TODO: From some reason sometimes stmt is inserted, will need to figure why
+        for stmt in stmts:
+            if isinstance(stmt, Stmt):
+                stmts_lst.append(stmt)
+        return stmts_lst
 
 
 VParser = Lark.open('v.lark')
