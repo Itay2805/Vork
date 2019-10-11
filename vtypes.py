@@ -302,6 +302,38 @@ class VFunctionType(VType):
         return f'{"mut " if self.mut else ""}fn ({params}) {return_types}'
 
 
+class VStructType(VType):
+
+    # TODO: Do I want the name to be part of the struct type?
+    def __init__(self, mut, embedded, fields):
+        """
+        :type embedded: VType
+        :type fields: List[Tuple[str, VType]]
+        """
+        super(VStructType, self).__init__(mut)
+        self.embedded = embedded
+        self.fields = fields
+
+    def __eq__(self, other):
+        if isinstance(other, VStructType) and self.mut == other.mut:
+            if self.embedded != other.embedded:
+                return False
+            if self.fields != other.fields:
+                return False
+            return True
+        return False
+
+    def __str__(self):
+        s = f'struct'
+        s += '{\n'
+        if self.embedded is not None:
+            s += f'{self.embedded}\n'
+        for field in self.fields:
+            s += f'{field[0]} {field[1]}\n'
+        s += '}'
+        return s
+
+
 #
 # Helpers
 #

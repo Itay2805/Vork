@@ -172,6 +172,15 @@ class VModule:
         elif isinstance(xtype, VBool) or isinstance(xtype, VIntegerType):
             pass
 
+        # Handle structs
+        elif isinstance(xtype, VStructType):
+            if xtype.embedded is not None:
+                xtype.embedded = self.resolve_type(xtype.embedded)
+
+            for i in range(len(xtype.fields)):
+                field = xtype.fields[i]
+                xtype.fields[i] = field[0], self.resolve_type(field[1])
+
         # Unknown types will get an assert so we don't forget stuff
         else:
             assert False, f"Unknown type type {xtype.__class__}"

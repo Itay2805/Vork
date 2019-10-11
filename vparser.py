@@ -50,8 +50,15 @@ class VAstTransformer(Transformer):
     # Module scope
     ############################################################
 
+    # Misc
+
     def module_decl(self, name):
         return 'module', self.workspace.load_module(name)
+
+    def type_alias_decl(self, name, xtype):
+        return name, xtype
+
+    # Function declaration
 
     def fn_decl(self, pub, name, params, return_types, stmts):
         func = VFunction()
@@ -83,6 +90,20 @@ class VAstTransformer(Transformer):
 
     def fn_return(self, *return_types):
         return list(return_types)
+
+    # Struct declaration
+
+    def struct_decl(self, name, embedded, fields):
+        return name, VStructType(False, embedded, fields)
+
+    def struct_fields(self, *fields):
+        return list(fields)
+
+    def struct_field(self, name, xtype):
+        return name, xtype
+
+    def embedded_struct_field(self, *xtype):
+        return xtype[0] if len(xtype) > 0 else None
 
     ############################################################
     # Statements

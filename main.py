@@ -5,14 +5,8 @@ from vparser import VParser
 import argparse
 
 if __name__ == '__main__':
-    if False:
-        print(VParser.parse("""
-fn main() {
-    if(false) {
-    }else if(false) {
-    }
-}   
-""").pretty())
+    if True:
+        print(VParser.parse(open('./test/test.v').read()).pretty())
     else:
         # TODO: Proper shit
         workspace = VWorkspace(['./test'])

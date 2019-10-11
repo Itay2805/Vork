@@ -1,17 +1,19 @@
 module main
 
-fn do_something(a, b int) int {
-    if a > 10 {
-        return 0
-    } else if(b > 10) {
-        return 1
-    } else {
-        return 2
+struct my_optional_int {
+    is_valid bool
+    number int
+}
+
+fn unwrap_my_optional_int(opt my_optional_int, default int) int {
+    if my_optional_int.is_valid {
+        return my_optional_int.number
     }
-    return 0
+    return default
 }
 
 fn main() {
-    c := do_something(5, 5)
+    opt := my_optional_int{false, 0}
+    c := unwrap_my_optional_int(opt, -1)
     print(c)
 }
