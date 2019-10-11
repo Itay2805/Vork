@@ -1,5 +1,5 @@
 from vast import *
-
+from vtypes import default_value_for_type
 
 def default_assertion(xtype):
     assert not isinstance(xtype, list), "Expression can not take multiple return"
@@ -56,6 +56,54 @@ class ExprBoolLiteral(Expr):
         return str(self.b).lower()
 
 
+class ExprStructLiteral(Expr):
+
+    def __init__(self, ref, xtype, fields):
+        """
+        :type ref: bool
+        :type xtype: VStructType
+        :type fields: List[Expr]
+        """
+        self.ref = ref
+        self.xtype = xtype
+        self.fields = fields
+
+    def resolve_type(self, module, scope):
+        # Don't forget to resolve it
+        self.xtype = module.resolve_type(self.xtype)
+
+        fields = self.fields
+
+        # Check if there is an embedded type
+        if self.xtype.embedded is not None and len(fields) > 0:
+            if fields[0] is not None:
+                t = fields[0].resolve_type(module, scope)
+                assert check_return_type(self.xtype.embedded, t), f"Can not assign type `{t}` to embedded field (expected `{self.xtype.embedded}`)"
+                fields = fields[1:]
+
+        # check the rest of the types
+        for field in self.xtype.fields and len(fields) > 0:
+            # None fields are default typed
+            if fields[0] is not None:
+                t = fields[0].resolve_type(module, scope)
+                assert check_return_type(field[1], t), f"Can not assign type `{t}` to field `{self.xtype.name}.{field[0]}` (expected `{field[1]}`)"
+                fields = fields[1:]
+
+            # The rest will be default typed
+            if len(fields) == 0:
+                break
+
+        # return the struct type
+        if self.ref:
+            # Remove the mutability of the type and pass it to the ref
+            self.xtype = self.xtype.copy()
+            self.xtype.mut = False
+            self.xtype = module.add_type(self.xtype)
+            return module.add_type(VRef(self.xtype.mut, self.xtype))
+
+        return module.add_type(self.xtype)
+
+
 class ExprIdentifierLiteral(Expr):
 
     def __init__(self, name):
@@ -69,8 +117,13 @@ class ExprIdentifierLiteral(Expr):
 
         if isinstance(ident, VFunction) or isinstance(ident, VBuiltinFunction):
             return ident.type
+
         elif isinstance(ident, VVariable):
             return ident.type
+
+        elif isinstance(ident, VStructType):
+            return ident
+
         else:
             assert False, f"Unexpected identifier type {ident.__class__}"
 
@@ -191,3 +244,33 @@ class ExprFunctionCall(Expr):
         args = ', '.join(map(str, self.arguments))
         return f'{self.func_expr}({args})'
 
+
+class ExprMemberAccess(Expr):
+
+    def __init__(self, expr, member_name):
+        """
+        :type expr: Expr
+        :type member_name: str
+        """
+        self.expr = expr
+        self.member_name = member_name
+
+    def resolve_type(self, module, scope):
+        t = self.expr.resolve_type(module, scope)
+
+        if isinstance(t, VStructType):
+            newt = t.get_field(self.member_name)
+            if newt is not None:
+                return newt[1]
+
+        elif isinstance(t, VArray):
+            if self.member_name == 'len':
+                return VIntegerType(False)
+
+        else:
+            assert False, f"Type `{t}` does not have any members"
+
+        return f"Type `{t}` does not have member `{self.member_name}`"
+
+    def __str__(self):
+        return f'{self.expr}.{self.member_name}'

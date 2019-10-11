@@ -304,18 +304,33 @@ class VFunctionType(VType):
 
 class VStructType(VType):
 
-    # TODO: Do I want the name to be part of the struct type?
-    def __init__(self, mut, embedded, fields):
+    def __init__(self, mut, name, embedded, fields):
         """
-        :type embedded: VType
+        :type name: str
+        :type embedded: VStructType
         :type fields: List[Tuple[str, VType]]
         """
         super(VStructType, self).__init__(mut)
+        self.name = name
         self.embedded = embedded
         self.fields = fields
 
+    def get_field(self, name):
+        # Check in our fields
+        for field in self.fields:
+            if field[0] == name:
+                return field
+
+        # Check embedded type
+        if self.embedded is not None:
+            return self.embedded.get_field(name)
+
+        return None
+
     def __eq__(self, other):
         if isinstance(other, VStructType) and self.mut == other.mut:
+            if self.name != other.name:
+                return False
             if self.embedded != other.embedded:
                 return False
             if self.fields != other.fields:
@@ -324,12 +339,12 @@ class VStructType(VType):
         return False
 
     def __str__(self):
-        s = f'struct'
+        s = f'struct '
         s += '{\n'
         if self.embedded is not None:
-            s += f'{self.embedded}\n'
+            s += f'\t{self.embedded}\n'
         for field in self.fields:
-            s += f'{field[0]} {field[1]}\n'
+            s += f'\t{field[0]} {field[1]}\n'
         s += '}'
         return s
 
@@ -344,6 +359,18 @@ def is_integer(xtype):
 
 def is_bool(xtype):
     return isinstance(xtype, VBool)
+
+
+def default_value_for_type(xtype):
+    from vexpr import ExprBoolLiteral, ExprIntegerLiteral, ExprStructLiteral
+
+    default = {
+        VBool: ExprBoolLiteral(False),
+        VIntegerType: ExprIntegerLiteral(0),
+        VStructType: ExprStructLiteral(xtype, [])
+    }
+
+    return default[xtype.__class__]
 
 
 def check_return_type(ret_type, xtype):

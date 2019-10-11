@@ -36,7 +36,7 @@ fn_return: [type_decl | "(" type_decl ("," type_decl)+ ")"]
 struct_decl: "struct" NAME "{" _NEWLINE? embedded_struct_field struct_fields "}"
 struct_fields: struct_field*
 struct_field: NAME type_decl _NEWLINE
-embedded_struct_field: (type_decl _NEWLINE)?
+embedded_struct_field: (maybe_mut NAME _NEWLINE)?
 
 ///////////////////////////////////////////////////
 // Statements
@@ -66,11 +66,12 @@ stmt_list: stmt*
 // the full expression precendence
 //************************************
 
-?expr: expr_postfix
+?expr: expr "." NAME -> expr_member_access
+     | expr "(" (expr ("," expr)*)? ")" -> expr_fn_call
+     | expr "[" expr "]" -> expr_index
+     | expr_postfix
 
-?expr_postfix: expr_unary "(" (expr ("," expr)*)? ")" -> expr_fn_call
-             | expr_unary "[" expr_unary "]" -> expr_index
-             | expr_unary "." expr_unary -> expr_member_access
+?expr_postfix:
              | expr_unary _op_postfix -> expr_postfix
              | expr_unary
 

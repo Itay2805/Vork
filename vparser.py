@@ -94,16 +94,16 @@ class VAstTransformer(Transformer):
     # Struct declaration
 
     def struct_decl(self, name, embedded, fields):
-        return name, VStructType(False, embedded, fields)
+        return str(name), VStructType(False, str(name), embedded, fields)
 
     def struct_fields(self, *fields):
         return list(fields)
 
     def struct_field(self, name, xtype):
-        return name, xtype
+        return str(name), xtype
 
     def embedded_struct_field(self, *xtype):
-        return xtype[0] if len(xtype) > 0 else None
+        return VUnresolvedType(xtype[0], xtype[1]) if len(xtype) > 0 else None
 
     ############################################################
     # Statements
@@ -113,6 +113,8 @@ class VAstTransformer(Transformer):
         return StmtReturn(list(exprs))
 
     def stmt_expr(self, expr):
+        if expr is None or not isinstance(expr, Expr):
+            return None
         return StmtExpr(expr)
 
     def stmt_assert(self, expr):
@@ -144,8 +146,11 @@ class VAstTransformer(Transformer):
     def expr_binary(self, expr0, op, expr1):
         return ExprBinary(op, expr0, expr1)
 
-    def expr_fn_call(self, fn_name, *params):
-        return ExprFunctionCall(fn_name, list(params))
+    def expr_fn_call(self, fn_expr, *params):
+        return ExprFunctionCall(fn_expr, list(params))
+
+    def expr_member_access(self, expr, member_name):
+        return ExprMemberAccess(expr, str(member_name))
 
     ############################################################
     # Literals
@@ -163,6 +168,11 @@ class VAstTransformer(Transformer):
     def const_false(self):
         return ExprBoolLiteral(False)
 
+    def struct_literal(self, mut, ref, name, *exprs):
+        # TODO: Need to extend this to support more than module local structs,
+        # TODO: But also external module structs
+        return ExprStructLiteral(ref, VUnresolvedType(mut, str(name)), list(exprs))
+
     ############################################################
     # Type declarations
     ############################################################
@@ -178,6 +188,9 @@ class VAstTransformer(Transformer):
         return len(args) != 0
 
     def maybe_pub(self, *args):
+        return len(args) != 0
+
+    def maybe_ref(self, *args):
         return len(args) != 0
 
     def stmt_list(self, *stmts):

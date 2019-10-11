@@ -5,7 +5,7 @@ from vparser import VParser
 import argparse
 
 if __name__ == '__main__':
-    if True:
+    if False:
         print(VParser.parse(open('./test/test.v').read()).pretty())
     else:
         # TODO: Proper shit

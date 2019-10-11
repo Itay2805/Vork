@@ -179,7 +179,12 @@ class VModule:
 
             for i in range(len(xtype.fields)):
                 field = xtype.fields[i]
-                xtype.fields[i] = field[0], self.resolve_type(field[1])
+                xtype.fields[i] = (field[0], self.resolve_type(field[1]))
+
+            # Make sure all the types seem good
+            if xtype.embedded is not None:
+                for field in xtype.fields:
+                    assert xtype.embedded.get_field(field[0]) is None, f"Field `{field[0]}` in type `{xtype}` shadows field in embedded type `{xtype.embedded}`"
 
         # Unknown types will get an assert so we don't forget stuff
         else:

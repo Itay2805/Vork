@@ -144,7 +144,7 @@ class StmtIf(Stmt):
 
     def type_check(self, module, scope):
         t = self.expr.resolve_type(module, scope)
-        assert isinstance(t, VBool), f"if expected `{VBool}`, got `{t.__class__.__name__}`"
+        assert isinstance(t, VBool), f"if expected `{VBool(False)}`, got `{t}`"
 
     def __str__(self):
         return f'`if {self.expr}`'
