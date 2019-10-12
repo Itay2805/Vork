@@ -6,14 +6,14 @@ struct my_optional_int {
 }
 
 fn unwrap_my_optional_int(opt my_optional_int, default int) int {
-    if my_optional_int.is_valid {
-        return my_optional_int.number
+    if opt.is_valid {
+        return opt.number
     }
     return default
 }
 
 fn main() {
-    opt := my_optional_int{false, 0}
-    c := unwrap_my_optional_int(opt, -1)
+    opt := my_optional_int{true, 100}
+    c := unwrap_my_optional_int(opt, 0)
     print(c)
 }

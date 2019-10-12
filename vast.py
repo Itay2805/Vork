@@ -125,7 +125,7 @@ class VModule:
         """
         # get the type
         t = self.get_identifier(unresolved.type_name)
-        assert isinstance(t, VType), f"{unresolved.type_name} is not a valid type"
+        assert isinstance(t, VType), f"`{unresolved.type_name}` is not a valid type"
 
         # If the type we got was not resolved yet, resolve it
         if isinstance(t, VUnresolvedType):

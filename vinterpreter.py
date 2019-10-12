@@ -2,6 +2,7 @@ from vstmt import *
 from vexpr import *
 from typing import *
 
+
 class CallStackFrame:
 
     def __init__(self, function, module):
@@ -45,6 +46,27 @@ class VInterpreter:
         self.module = module
         self.call_stack = []  # type: List[CallStackFrame]
 
+    def _init_struct(self, expr, strct=None):
+        """
+        :type expr: ExprStructLiteral
+        """
+        fields = expr.fields
+
+        if strct is None:
+            strct = {}
+
+        # TODO: Embedded type
+
+        # Do none embedded types
+        for field in expr.xtype.fields:
+            if len(fields) > 0:
+                strct[field[0]] = self._eval_expression(fields[0])
+                fields = fields[1:]
+            else:
+                strct[field[0]] = self._eval_expression(default_value_for_type(field[1]))
+
+        return strct
+
     def _eval_expression(self, expr):
         """
         :type expr: Expr
@@ -70,6 +92,12 @@ class VInterpreter:
                     return ret
             else:
                 return ret
+
+        elif isinstance(expr, ExprStructLiteral):
+            return self._init_struct(expr)
+
+        elif isinstance(expr, ExprMemberAccess):
+            return self._eval_expression(expr.expr)[expr.member_name]
 
         else:
             assert False, f"Unknown expression {expr}"

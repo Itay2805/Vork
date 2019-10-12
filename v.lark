@@ -131,7 +131,6 @@ stmt_list: stmt*
           | ident
           | struct_literal
           | struct_literal_named
-          | struct_literal_modify
 
 ///////////////////////////////////////////////////
 // Literals
@@ -139,11 +138,11 @@ stmt_list: stmt*
 
 // Struct literal types
 // MyStruct{1,2,3}
-struct_literal: maybe_ref NAME "{" (expr ("," expr)*)? "}"
+struct_literal: maybe_mut maybe_ref NAME "{" (expr ("," expr)*)? "}"
 // MyStruct{a: 1, b: 2, c: 3}
-struct_literal_named: maybe_ref NAME "{" struct_literal_named_item ("," struct_literal_named_item)* "}"
+struct_literal_named: maybe_mut maybe_ref NAME "{" struct_literal_named_item ("," struct_literal_named_item)* "}"
 // MyStruct{ old | b: 3, c: 4 }
-struct_literal_modify: maybe_ref NAME "{" expr "|" struct_literal_named_item ("," struct_literal_named_item)* "}"
+// struct_literal_modify: maybe_mut maybe_ref NAME "{" expr "|" struct_literal_named_item ("," struct_literal_named_item)* "}"
 struct_literal_named_item: NAME ":" expr
 
 number: DEC_NUMBER

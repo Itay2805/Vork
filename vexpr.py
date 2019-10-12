@@ -82,16 +82,17 @@ class ExprStructLiteral(Expr):
                 fields = fields[1:]
 
         # check the rest of the types
-        for field in self.xtype.fields and len(fields) > 0:
-            # None fields are default typed
-            if fields[0] is not None:
-                t = fields[0].resolve_type(module, scope)
-                assert check_return_type(field[1], t), f"Can not assign type `{t}` to field `{self.xtype.name}.{field[0]}` (expected `{field[1]}`)"
-                fields = fields[1:]
+        if len(fields) > 0:
+            for field in self.xtype.fields:
+                # None fields are default typed
+                if fields[0] is not None:
+                    t = fields[0].resolve_type(module, scope)
+                    assert check_return_type(field[1], t), f"Can not assign type `{t}` to field `{self.xtype.name}.{field[0]}` (expected `{field[1]}`)"
+                    fields = fields[1:]
 
-            # The rest will be default typed
-            if len(fields) == 0:
-                break
+                # The rest will be default typed
+                if len(fields) == 0:
+                    break
 
         # return the struct type
         if self.ref:
