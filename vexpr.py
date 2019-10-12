@@ -27,21 +27,8 @@ class ExprIntegerLiteral(Expr):
         :rtype: VType
         """
 
-        # quick way to get the number of needed bits
-        # we exclude the last bit in each type because the literal is signed
-        # TODO: maybe want to allow for unsigned literals as well
-        # TODO: maybe we want literals by default to be an int always?
-        bits = len(bin(self.num)[2:])
-        if bits < 8:
-            return module.resolve_type(VI8(False))
-        elif bits < 16:
-            return module.resolve_type(VI16(False))
-        elif bits < 32:
-            return module.resolve_type(VI16(False))
-        elif bits < 64:
-            return module.resolve_type(VInt(False))
-        elif bits < 128:
-            return module.resolve_type(VI128(False))
+        # Always return a type of int, to override it use the casts
+        return module.resolve_type(VInt(False))
 
     def __str__(self):
         return str(self.num)
@@ -128,7 +115,7 @@ class ExprIdentifierLiteral(Expr):
         elif isinstance(ident, VVariable):
             return ident.type
 
-        elif isinstance(ident, VStructType):
+        elif isinstance(ident, VType):
             return ident
 
         else:
@@ -227,28 +214,39 @@ class ExprFunctionCall(Expr):
 
     def resolve_type(self, module, scope):
         func = self.func_expr.resolve_type(module, scope)
-        assert isinstance(func, VFunctionType), f"function call expected function, got `{func}`"
         default_assertion(func)
 
-        assert len(self.arguments) == len(func.param_types), f"expected {len(func.param_types)} arguments, got {len(self.arguments)}"
-        for i in range(len(self.arguments)):
-            t0 = self.arguments[i].resolve_type(module, scope)
-            default_assertion(t0)
-            t1 = func.param_types[i]
-            assert check_return_type(t1, t0), f'function agument at `{i}` expected `{t1}`, got `{t0}`'
+        # Nomral functions
+        if isinstance(func, VFunctionType):
+            assert len(self.arguments) == len(func.param_types), f"expected {len(func.param_types)} arguments, got {len(self.arguments)}"
+            for i in range(len(self.arguments)):
+                t0 = self.arguments[i].resolve_type(module, scope)
+                default_assertion(t0)
+                t1 = func.param_types[i]
+                assert check_return_type(t1, t0), f'function agument at `{i}` expected `{t1}`, got `{t0}`'
 
-        # If returns one type, return 1 type
-        if len(func.return_types) == 1:
-            return func.return_types[0]
+            # If returns one type, return 1 type
+            if len(func.return_types) == 1:
+                return func.return_types[0]
 
-        # If does not return anything, return void type
-        elif len(func.return_types) == 0:
-            return VVoidType()
+            # If does not return anything, return void type
+            elif len(func.return_types) == 0:
+                return VVoidType()
 
-        # If has multiple types just return them all
-        # TODO: make sure to handle list of types everywhere
+            # If has multiple types just return them all
+            # TODO: make sure to handle list of types everywhere
+            else:
+                return func.return_types
+
+        # int casts
+        elif isinstance(func, VIntegerType):
+            assert len(self.arguments) == 1, f"expected 1 argument for cast, got {len(self.arguments)}"
+            t = self.arguments[0].resolve_type(module, scope)
+            assert isinstance(t, VIntegerType), f"Integer cast requires an integer (got `{t}`)"
+            return func
+
         else:
-            return func.return_types
+            assert False, f"the type `{func}` is not callable"
 
     def __str__(self):
         args = ', '.join(map(str, self.arguments))

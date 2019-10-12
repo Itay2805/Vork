@@ -192,6 +192,18 @@ class VAstTransformer(Transformer):
     def type_ident(self, mut, xtype):
         return VUnresolvedType(mut, xtype)
 
+    def type_array(self, mut, xtype):
+        return VArray(mut, xtype)
+
+    def type_map(self, mut, keyt, valuet):
+        return VMap(mut, keyt, valuet)
+
+    def type_ref(self, mut, xtype):
+        return VRef(mut, xtype)
+
+    def type_opt(self, mut, xtype):
+        return VOptional(mut, xtype)
+
     ############################################################
     # Helpers
     ############################################################

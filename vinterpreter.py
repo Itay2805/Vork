@@ -98,7 +98,12 @@ class VInterpreter:
             return self._init_struct(expr)
 
         elif isinstance(expr, ExprMemberAccess):
-            return self._eval_expression(expr.expr)[expr.member_name]
+            t = self._eval_expression(expr.expr)
+            if isinstance(t, list):
+                if expr.member_name == 'len':
+                    return len(t)
+            else:
+                return [expr.member_name]
 
         elif isinstance(expr, ExprArrayLiteral):
             return [self._eval_expression(expr) for expr in expr.exprs]
@@ -194,6 +199,7 @@ class VInterpreter:
         if params is None:
             params = []
 
+        # User defined function
         if isinstance(func, VFunction):
             self.call_stack.append(CallStackFrame(func, self.module))
             self.call_stack[-1].push_scope()
@@ -203,11 +209,18 @@ class VInterpreter:
                 self.call_stack[-1].set_variable(func.param_names[i], params[i])
 
             return self._eval_statement(func.root_scope)
+
+        # Builtin function
         elif isinstance(func, VBuiltinFunction):
             if func.name == 'print':
                 print(params[0])
             else:
                 assert False, f"Unknown builtin function `{func.name}`"
+
+        # Integer cast
+        elif isinstance(func, VIntegerType):
+            return params[0]
+
         else:
             assert False, f"Unknown function `{func}`"
 
