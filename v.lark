@@ -44,12 +44,23 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
 
 ?stmt: expr _NEWLINE -> stmt_expr
      | "return" [expr ("," expr)*] _NEWLINE -> stmt_return
-     | var_decl_names ":=" expr _NEWLINE -> stmt_var_decl
      | "assert" expr _NEWLINE -> stmt_assert
-     | expr "=" expr _NEWLINE -> stmt_assign
      | expr _op_assignment expr _NEWLINE -> stmt_op_assign
+     | "for" NAME "in" expr "{" stmt_list "}" -> stmt_foreach
+     | "for" NAME "," NAME "in" expr "{" stmt_list "}" -> stmt_foreach_indexed
+     | "for" (maybe_var_decl|stmt_assignment) ";" expr ";" (expr | stmt_assignment) "{" stmt_list "}" -> stmt_for
+     | "for" "{" stmt_list "}"-> stmt_forever
+     | "break" -> stmt_break
+     | "continue" -> stmt_continue
+     | stmt_var_decl _NEWLINE
+     | stmt_assignment _NEWLINE
      | stmt_if
      | _NEWLINE
+
+stmt_var_decl: var_decl_names ":=" expr
+!maybe_var_decl: stmt_var_decl?
+
+?stmt_assignment: expr "=" expr -> stmt_assign
 
 stmt_if: "if" expr "{" stmt_list "}" (stmt_else | _NEWLINE)
 ?stmt_else: "else" "{" stmt_list "}" _NEWLINE -> stmt_else

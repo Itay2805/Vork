@@ -306,11 +306,11 @@ class ExprIndex(Expr):
 
         if isinstance(t, VArray):
             assert isinstance(at_type, VIntegerType), f"array index must be an integer type (got {at_type})"
-            return t.type
+            return t.xtype
 
         elif isinstance(t, VMap):
-            assert check_return_type(at_type, t.key), f"map of type {t} expected key {t.key}, got {at_type}"
-            return t.value
+            assert check_return_type(at_type, t.key_type), f"map of type {t} expected key {t.key_type}, got {at_type}"
+            return t.value_type
 
         else:
             assert False, f"Index operator not supported for type {t}"

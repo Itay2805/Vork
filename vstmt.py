@@ -135,19 +135,26 @@ class StmtBreak(Stmt):
 
 class StmtIf(Stmt):
 
-    def __init__(self, expr, stmt0, stmt1):
+    def __init__(self, expr, stmts_true, stmts_false):
         """
         :type expr: Expr
-        :type stmt0: List[Stmt]
-        :type stmt1: List[Stmt] or None
+        :type stmts_true: List[Stmt]
+        :type stmts_false: List[Stmt] or None
         """
         self.expr = expr
-        self.stmt0 = stmt0
-        self.stmt1 = stmt1
+        self.stmts_true = stmts_true
+        self.stmts_false = stmts_false
 
     def type_check(self, module, scope):
         t = self.expr.resolve_type(module, scope)
         assert isinstance(t, VBool), f"if expected `{VBool(False)}`, got `{t}`"
+
+        for stmt in self.stmts_true:
+            stmt.type_check(module, scope)
+
+        if self.stmts_false is not None:
+            for stmt in self.stmts_false:
+                stmt.type_check(module, scope)
 
     def __str__(self):
         return f'`if {self.expr}`'
@@ -168,16 +175,7 @@ class StmtAssign(Stmt):
         t1 = self.expr.resolve_type(module, scope)
         assert check_return_type(t0, t1), f"Can not assign `{t1}` to `{t0}`"
 
-        if isinstance(self.dest, ExprIdentifierLiteral):
-            ident = scope.get_identifier(self.dest.name)
-
-            if isinstance(ident, VStructType):
-                assert ident.mut, f"Struct must be mutable to edit it"
-
-            else:
-                assert False
-
-        elif isinstance(self.dest, ExprMemberAccess):
+        if isinstance(self.dest, ExprMemberAccess):
             tstrct = self.dest.expr.resolve_type(module, scope)
             assert tstrct.mut, f"{tstrct} must be mutable to edit it"
 
@@ -185,8 +183,86 @@ class StmtAssign(Stmt):
             xtype = self.dest.src.resolve_type(module, scope)
             assert xtype.mut, f"{xtype} must be mutable to edit it"
 
-        else:
-            assert False
-
     def __str__(self):
         return f'`{self.dest} = {self.expr}`'
+
+
+class StmtFor(Stmt):
+
+    def __init__(self, decl, condition, expr, stmts):
+        """
+        :type decl: StmtDeclare or None
+        :type condition: Expr
+        :type expe: Expr or StmtAssign
+        :type stmts: List[Stmt]
+        """
+        self.decl = decl
+        self.condition = condition
+        self.expr = expr
+        self.stmts = stmts
+
+    def type_check(self, module, scope):
+        # Check the declaration
+        if self.decl is not None:
+            self.decl.type_check(module, scope)
+
+        # Check the condition
+        t = self.condition.resolve_type(module, scope)
+        assert isinstance(t, VBool), f"for condition has to be bool, got `{t}`"
+
+        # Check the expr
+        if isinstance(self.expr, Stmt):
+            self.expr.type_check(module, scope)
+        elif isinstance(self.expr, Expr):
+            self.expr.resolve_type(module, scope)
+
+        # Check all the statements
+        for stmt in self.stmts:
+            stmt.type_check(module, scope)
+
+    def __str__(self):
+        if self.decl is not None:
+            return f'`for {self.decl}; {self.condition}; {self.expr}`'
+        else:
+            return f'`for ; {self.condition}; {self.expr}`'
+
+
+class StmtForeach(Stmt):
+
+    def __init__(self, index_name, item_name, expr, stmt_list):
+        """
+        :type index_name: str
+        :type item_name: str
+        :type expr: Expr
+        :type stmt_list: List[Stmt]
+        """
+        self.expr = expr
+        self.index_name = index_name
+        self.item_name = item_name
+        self.stmts = stmt_list
+
+    def type_check(self, module, scope):
+        t = self.expr.resolve_type(module, scope)
+
+        if isinstance(t, VArray):
+            if self.index_name is not None:
+                scope.add_variable(self.index_name, VInt(False))
+            scope.add_variable(self.item_name, t.xtype)
+
+        elif isinstance(t, VMap):
+            if self.index_name is not None:
+                scope.add_variable(self.index_name, t.key_type)
+            scope.add_variable(self.item_name, t.value_type)
+
+        else:
+            assert False, f"type `{t}` is not iterable"
+
+        # Check all the statements
+        for stmt in self.stmts:
+            stmt.type_check(module, scope)
+
+    def __str__(self):
+        if self.index_name is not None:
+            return f'`for {self.index_name}, {self.item_name} in {self.expr}`'
+        else:
+            return f'`for {self.item_name} in {self.expr}`'

@@ -37,6 +37,12 @@ class StmtCompound(Stmt):
         self.variables = {}  # type: Dict[str, VVariable]
         self.code = []  # type: List[Stmt]
 
+    def fix_children(self):
+        for c in self.code:
+            if isinstance(c, StmtCompound):
+                c.parent = self
+                c.fix_children()
+
     def type_check(self, module, scope):
         for c in self.code:
             c.type_check(module, self)
@@ -62,6 +68,9 @@ class StmtCompound(Stmt):
             return self.parent
         else:
             return self.parent.get_function()
+
+    def __str__(self):
+        return "[" + ','.join([str(c) for c in self.code]) + "]"
 
 
 ########################################################################
@@ -148,12 +157,12 @@ class VModule:
 
         # Handle types with one subtype
         elif isinstance(xtype, VRef) or isinstance(xtype, VArray) or isinstance(xtype, VOptional):
-            xtype.type = self.resolve_type(xtype.type)
+            xtype.xtype = self.resolve_type(xtype.xtype)
 
         # Handle type with two subtypes
         elif isinstance(xtype, VMap):
-            xtype.key = self.resolve_type(xtype.key)
-            xtype.value = self.resolve_type(xtype.value)
+            xtype.key_type = self.resolve_type(xtype.key_type)
+            xtype.value_type = self.resolve_type(xtype.value_type)
 
         # Function type resolving
         elif isinstance(xtype, VFunctionType):

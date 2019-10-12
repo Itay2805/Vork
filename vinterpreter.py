@@ -44,6 +44,8 @@ class VInterpreter:
         :type module: VModule
         """
         self.module = module
+        self.should_break = False
+        self.should_continue = False
         self.call_stack = []  # type: List[CallStackFrame]
 
     def _init_struct(self, expr, strct=None):
@@ -86,7 +88,7 @@ class VInterpreter:
         elif isinstance(expr, ExprFunctionCall):
             from copy import copy
             ret = self._eval_function(self._eval_expression(expr.func_expr), [copy(self._eval_expression(e)) for e in expr.arguments])
-            if isinstance(ret, list):
+            if isinstance(ret, tuple):
                 if len(ret) == 1:
                     return ret[0]
                 else:
@@ -126,10 +128,16 @@ class VInterpreter:
 
         elif isinstance(stmt, StmtCompound):
             self.call_stack[-1].push_scope()
+
             for s in stmt.code:
                 ret = self._eval_statement(s)
                 if ret is not None:
                     return ret
+
+                # If need to break or continue do that
+                if self.should_continue or self.should_break:
+                    break
+
             self.call_stack[-1].pop_scope()
 
         elif isinstance(stmt, StmtExpr):
@@ -149,15 +157,15 @@ class VInterpreter:
 
             # Eval the if
             if expr:
-                for s in stmt.stmt0:
+                for s in stmt.stmts_true:
                     ret = self._eval_statement(s)
                     if ret is not None:
                         return ret
 
             # Eval the else
             else:
-                if stmt.stmt1 is not None:
-                    for s in stmt.stmt1:
+                if stmt.stmts_false is not None:
+                    for s in stmt.stmts_false:
                         ret = self._eval_statement(s)
                         if ret is not None:
                             return ret
@@ -186,6 +194,108 @@ class VInterpreter:
 
             else:
                 assert False, f"Can not assign to expression `{stmt.dest}` ({stmt.dest.__class__})"
+
+        elif isinstance(stmt, StmtBreak):
+            self.should_break = True
+
+        elif isinstance(stmt, StmtContinue):
+            self.should_continue = True
+
+        elif isinstance(stmt, StmtFor):
+            self.call_stack[-1].push_scope()
+            should_run = True
+
+            # Process the decl if needed
+            if stmt.decl is not None:
+                self._eval_statement(stmt.decl)
+
+            # While the condition is true and we should run
+            while should_run and self._eval_expression(stmt.condition):
+                self.should_continue = False
+                self.should_break = False
+
+                for s in stmt.stmts:
+                    ret = self._eval_statement(s)
+                    if ret is not None:
+                        return ret
+
+                    # Break from running of statements
+                    # and tell the loop to stop
+                    if self.should_break:
+                        should_run = False
+                        break
+
+                    # Break from the running of statements
+                    # but continue running
+                    elif self.should_continue:
+                        break
+
+                # Run the expression
+                if not self.should_break:
+                    if isinstance(stmt.expr, Stmt):
+                        self._eval_statement(stmt.expr)
+                    elif isinstance(stmt.expr, Expr):
+                        self._eval_expression(stmt.expr)
+
+            self.call_stack[-1].pop_scope()
+
+        elif isinstance(stmt, StmtForeach):
+            self.call_stack[-1].push_scope()
+            should_run = True
+
+            # TODO: Support maps
+
+            # For the case of not indexed array
+            if stmt.index_name is None:
+                e = self._eval_expression(stmt.expr)
+                for item in e:
+                    self.call_stack[-1].set_variable(stmt.item_name, item)
+                    for s in stmt.stmts:
+                        ret = self._eval_statement(s)
+                        if ret is not None:
+                            return ret
+
+                        # Break from running of statements
+                        # and tell the loop to stop
+                        if self.should_break:
+                            should_run = False
+                            break
+
+                        # Break from the running of statements
+                        # but continue running
+                        elif self.should_continue:
+                            break
+
+                    if not should_run:
+                        break
+
+            # for the case of indexed array
+            else:
+                arr = self._eval_expression(stmt.expr)
+                for index in range(len(arr)):
+                    self.call_stack[-1].set_variable(stmt.item_name, arr[index])
+                    self.call_stack[-1].set_variable(stmt.index_name, index)
+                    for s in stmt.stmts:
+                        ret = self._eval_statement(s)
+                        if ret is not None:
+                            return ret
+
+                        # Break from running of statements
+                        # and tell the loop to stop
+                        if self.should_break:
+                            should_run = False
+                            break
+
+                        # Break from the running of statements
+                        # but continue running
+                        elif self.should_continue:
+                            break
+
+                    if not should_run:
+                        break
+
+            self.call_stack[-1].pop_scope()
+
 
         else:
             assert False, f"Unknown statement {stmt.__class__.__name__}"

@@ -192,21 +192,21 @@ class VBool(VType):
 
 class VArray(VType):
 
-    def __init__(self, mut, type):
+    def __init__(self, mut, xtype):
         """
         :type mut: bool
-        :type type: VType
+        :type xtype: VType
         """
         super(VArray, self).__init__(mut)
-        self.type = type
+        self.xtype = xtype
 
     def __eq__(self, other):
         if isinstance(other, VArray) and self.mut == other.mut:
-            return self.type == other.type
+            return self.xtype == other.xtype
         return False
 
     def __str__(self):
-        return f'{"mut " if self.mut else ""}[]{self.type}'
+        return f'{"mut " if self.mut else ""}[]{self.xtype}'
 
 
 class VRef(VType):
@@ -230,21 +230,21 @@ class VRef(VType):
 
 class VOptional(VType):
 
-    def __init__(self, mut, type):
+    def __init__(self, mut, xtype):
         """
         :type mut: bool
-        :type type: VType
+        :type xtype: VType
         """
         super(VOptional, self).__init__(mut)
-        self.type = type
+        self.xtype = xtype
 
     def __eq__(self, other):
         if isinstance(other, VOptional) and self.mut == other.mut:
-            return self.type == other.type
+            return self.xtype == other.xtype
         return False
 
     def __str__(self):
-        return f'{"mut " if self.mut else ""}?{self.type}'
+        return f'{"mut " if self.mut else ""}?{self.xtype}'
 
 
 class VMap(VType):
@@ -256,16 +256,16 @@ class VMap(VType):
         :type value: VType
         """
         super(VMap, self).__init__(mut)
-        self.key = key
-        self.value = value
+        self.key_type = key
+        self.value_type = value
 
     def __eq__(self, other):
         if isinstance(other, VMap) and self.mut == other.mut:
-            return self.key == other.key and self.value == other.value
+            return self.key_type == other.key_type and self.value_type == other.value_type
         return False
 
     def __str__(self):
-        return f'{"mut " if self.mut else ""}map[{self.key}]{self.value}'
+        return f'{"mut " if self.mut else ""}map[{self.key_type}]{self.value_type}'
 
 
 class VFunctionType(VType):

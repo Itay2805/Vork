@@ -69,6 +69,7 @@ class VAstTransformer(Transformer):
         for rtype in return_types:
             func.add_return_type(rtype)
         func.root_scope.code = stmts
+        func.root_scope.fix_children()
         return func
 
     def fn_params(self, *params):
@@ -141,6 +142,26 @@ class VAstTransformer(Transformer):
 
     def stmt_assign(self, dest, expr):
         return StmtAssign(dest, expr)
+
+    def stmt_forever(self, stmt_list):
+        # for -> for ; true; 0
+        return StmtFor(None, ExprBoolLiteral(True), ExprIntegerLiteral(0), stmt_list)
+
+    def stmt_foreach(self, name, expr, stmts):
+        return StmtForeach(None, str(name), expr, stmts)
+
+    def stmt_foreach_indexed(self, index, item, expr, stmts):
+        return StmtForeach(str(index), str(item), expr, stmts)
+
+    def stmt_for(self, decl, condition, expr, stmt_list):
+        # Return that scope
+        return StmtFor(decl, condition, expr, stmt_list)
+
+    def stmt_break(self):
+        return StmtBreak()
+
+    def stmt_continue(self):
+        return StmtContinue()
 
     ############################################################
     # Expressions
@@ -216,6 +237,12 @@ class VAstTransformer(Transformer):
 
     def maybe_ref(self, *args):
         return len(args) != 0
+
+    def maybe_var_decl(self, *args):
+        if len(args) != 0:
+            return args[0]
+        else:
+            return None
 
     def stmt_list(self, *stmts):
         stmts_lst = []
