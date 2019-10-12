@@ -367,9 +367,12 @@ def default_value_for_type(xtype):
 
     default = {
         VBool: ExprBoolLiteral(False),
-        VIntegerType: ExprIntegerLiteral(0),
-        VStructType: ExprStructLiteral(xtype, [])
+        VStructType: ExprStructLiteral(False, xtype, [])
     }
+
+    # Special case to handle all integers
+    if isinstance(xtype, VIntegerType):
+        return ExprIntegerLiteral(0)
 
     return default[xtype.__class__]
 

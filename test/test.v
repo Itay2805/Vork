@@ -1,11 +1,9 @@
 module main
 
-fn test(arr []i8) {
+fn test(arr []int) {
     print(arr.len)
 }
 
 fn main() {
-    mut arr := [i8(1),2,3,4]
-    test(arr)
-    print(arr[0])
+    test([[1,2,3].len]int)
 }

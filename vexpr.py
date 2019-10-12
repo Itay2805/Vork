@@ -277,7 +277,7 @@ class ExprMemberAccess(Expr):
 
         elif isinstance(t, VArray):
             if self.member_name == 'len':
-                return VIntegerType(False)
+                return VInt(False)
 
         else:
             assert False, f"Type `{t}` does not have any members"
@@ -365,6 +365,7 @@ class ExprArrayLiteralUninit(Expr):
         self.xtype = xtype
 
     def resolve_type(self, module, scope):
+        self.xtype = module.resolve_type(self.xtype)
         default_assertion(self.xtype)
         assert isinstance(self.length.resolve_type(module, scope), VIntegerType), "Length of array must be an integer"
         return module.add_type(VArray(True, self.xtype))
