@@ -249,22 +249,23 @@ class VOptional(VType):
 
 class VMap(VType):
 
-    def __init__(self, mut, type0, type1):
+    def __init__(self, mut, key, value):
         """
         :type mut: bool
-        :type type: VType
+        :type key: VType
+        :type value: VType
         """
         super(VMap, self).__init__(mut)
-        self.type0 = type0
-        self.type1 = type1
+        self.key = key
+        self.value = value
 
     def __eq__(self, other):
         if isinstance(other, VMap) and self.mut == other.mut:
-            return self.type0 == other.type0 and self.type1 == other.type1
+            return self.key == other.key and self.value == other.value
         return False
 
     def __str__(self):
-        return f'{"mut " if self.mut else ""}map[{self.type0}]{self.type1}'
+        return f'{"mut " if self.mut else ""}map[{self.key}]{self.value}'
 
 
 class VFunctionType(VType):

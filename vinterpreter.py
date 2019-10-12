@@ -84,7 +84,8 @@ class VInterpreter:
             return eval(f'{self._eval_expression(expr.expr0)} {expr.op} {self._eval_expression(expr.expr1)}')
 
         elif isinstance(expr, ExprFunctionCall):
-            ret = self._eval_function(self._eval_expression(expr.func_expr), [self._eval_expression(e) for e in expr.arguments])
+            from copy import copy
+            ret = self._eval_function(self._eval_expression(expr.func_expr), [copy(self._eval_expression(e)) for e in expr.arguments])
             if isinstance(ret, list):
                 if len(ret) == 1:
                     return ret[0]
@@ -98,6 +99,15 @@ class VInterpreter:
 
         elif isinstance(expr, ExprMemberAccess):
             return self._eval_expression(expr.expr)[expr.member_name]
+
+        elif isinstance(expr, ExprArrayLiteral):
+            return [self._eval_expression(expr) for expr in expr.exprs]
+
+        elif isinstance(expr, ExprArrayLiteralUninit):
+            return [self._eval_expression(default_value_for_type(expr.xtype))] * self._eval_expression(expr.length)
+
+        elif isinstance(expr, ExprIndex):
+            return self._eval_expression(expr.src)[self._eval_expression(expr.at)]
 
         else:
             assert False, f"Unknown expression {expr}"
@@ -121,11 +131,12 @@ class VInterpreter:
             self._eval_expression(stmt.expr)
 
         elif isinstance(stmt, StmtReturn):
+            from copy import copy
             exprs = []
             for e in stmt.exprs:
-                exprs.append(self._eval_expression(e))
+                exprs.append(copy(self._eval_expression(e)))
             self.call_stack.pop()
-            return exprs
+            return tuple(exprs)
 
         elif isinstance(stmt, StmtIf):
             expr = self._eval_expression(stmt.expr)
@@ -152,7 +163,7 @@ class VInterpreter:
             expr = stmt.expr
             results = self._eval_expression(expr)
 
-            if not isinstance(results, list):
+            if not isinstance(results, tuple):
                 results = [results]
 
             for i in range(len(stmt.names)):
@@ -164,6 +175,9 @@ class VInterpreter:
 
             elif isinstance(stmt.dest, ExprMemberAccess):
                 self._eval_expression(stmt.dest.expr)[stmt.dest.member_name] = self._eval_expression(stmt.expr)
+
+            elif isinstance(stmt.dest, ExprIndex):
+                self._eval_expression(stmt.dest.src)[self._eval_expression(stmt.dest.at)] = self._eval_expression(stmt.expr)
 
             else:
                 assert False, f"Can not assign to expression `{stmt.dest}` ({stmt.dest.__class__})"

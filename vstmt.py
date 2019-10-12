@@ -179,7 +179,11 @@ class StmtAssign(Stmt):
 
         elif isinstance(self.dest, ExprMemberAccess):
             tstrct = self.dest.expr.resolve_type(module, scope)
-            assert tstrct.mut, f"Struct must be mutable to edit it"
+            assert tstrct.mut, f"{tstrct} must be mutable to edit it"
+
+        elif isinstance(self.dest, ExprIndex):
+            xtype = self.dest.src.resolve_type(module, scope)
+            assert xtype.mut, f"{xtype} must be mutable to edit it"
 
         else:
             assert False

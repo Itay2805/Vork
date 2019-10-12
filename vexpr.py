@@ -1,7 +1,13 @@
 from vast import *
 from vtypes import default_value_for_type
 
+
 def default_assertion(xtype):
+    """
+    Run these in most expressions
+
+    These make sure the type is not void nor multiple return
+    """
     assert not isinstance(xtype, list), "Expression can not take multiple return"
     assert not isinstance(xtype, VVoidType), "Expression can not take void return"
 
@@ -207,6 +213,9 @@ class ExprBinary(Expr):
 
 
 class ExprFunctionCall(Expr):
+    """
+    Will call the given function returning either a single value or multiple values
+    """
 
     def __init__(self, func_expr, arguments):
         """
@@ -247,6 +256,9 @@ class ExprFunctionCall(Expr):
 
 
 class ExprMemberAccess(Expr):
+    """
+    Will return the member of the given expression
+    """
 
     def __init__(self, expr, member_name):
         """
@@ -258,6 +270,7 @@ class ExprMemberAccess(Expr):
 
     def resolve_type(self, module, scope):
         t = self.expr.resolve_type(module, scope)
+        default_assertion(t)
 
         if isinstance(t, VStructType):
             newt = t.get_field(self.member_name)
@@ -271,7 +284,92 @@ class ExprMemberAccess(Expr):
         else:
             assert False, f"Type `{t}` does not have any members"
 
-        return f"Type `{t}` does not have member `{self.member_name}`"
+        assert False, f"Type `{t}` does not have member `{self.member_name}`"
 
     def __str__(self):
         return f'{self.expr}.{self.member_name}'
+
+
+class ExprIndex(Expr):
+
+    def __init__(self, src, at):
+        """
+        :type src: Expr
+        :type at: Expr
+        """
+        self.src = src
+        self.at = at
+
+    def resolve_type(self, module, scope):
+        t = self.src.resolve_type(module, scope)
+        at_type = self.at.resolve_type(module, scope)
+        default_assertion(t)
+        default_assertion(at_type)
+
+        if isinstance(t, VArray):
+            assert isinstance(at_type, VIntegerType), f"array index must be an integer type (got {at_type})"
+            return t.type
+
+        elif isinstance(t, VMap):
+            assert check_return_type(at_type, t.key), f"map of type {t} expected key {t.key}, got {at_type}"
+            return t.value
+
+        else:
+            assert False, f"Index operator not supported for type {t}"
+
+    def __str__(self):
+        return f'{self.src}[{self.at}]'
+
+
+class ExprArrayLiteral(Expr):
+    """
+    Return a new initialized array of the given expressions
+    """
+
+    def __init__(self, exprs):
+        """
+        :type exprs: List[Expr]
+        """
+        self.exprs = exprs
+
+    def resolve_type(self, module, scope):
+        xtype = None
+
+        i = 0
+        for expr in self.exprs:
+            if xtype is None:
+                xtype = expr.resolve_type(module, scope)
+            else:
+                xt = expr.resolve_type(module, scope)
+                assert check_return_type(xtype, xt), f"Array item at index `{i}` does not match type (expected `{xtype}`, got `{xt}`)"
+            i += 1
+
+        default_assertion(xtype)
+
+        return module.add_type(VArray(True, xtype))
+
+    def __str__(self):
+        return "[" + ','.join([str(expr) for expr in self.exprs]) + "]"
+
+
+class ExprArrayLiteralUninit(Expr):
+    """
+    Returns a new un-initialized (default initialized) array of the given type
+    with the given amount of starting elements
+    """
+
+    def __init__(self, length, xtype):
+        """
+        :type length: Expr
+        :type xtype: VType
+        """
+        self.length = length
+        self.xtype = xtype
+
+    def resolve_type(self, module, scope):
+        default_assertion(self.xtype)
+        assert isinstance(self.length.resolve_type(module, scope), VIntegerType), "Length of array must be an integer"
+        return module.add_type(VArray(True, self.xtype))
+
+    def __str__(self):
+        return f'[{self.length}]{self.xtype}'

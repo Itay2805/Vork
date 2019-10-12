@@ -152,8 +152,8 @@ class VModule:
 
         # Handle type with two subtypes
         elif isinstance(xtype, VMap):
-            xtype.type0 = self.resolve_type(xtype.type0)
-            xtype.type1 = self.resolve_type(xtype.type1)
+            xtype.key = self.resolve_type(xtype.key)
+            xtype.value = self.resolve_type(xtype.value)
 
         # Function type resolving
         elif isinstance(xtype, VFunctionType):

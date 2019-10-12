@@ -136,6 +136,8 @@ stmt_list: stmt*
           | ident
           | struct_literal
           | struct_literal_named
+          | array_literal
+          | array_literal_uninit
 
 ///////////////////////////////////////////////////
 // Literals
@@ -149,6 +151,10 @@ struct_literal_named: maybe_ref NAME "{" struct_literal_named_item ("," struct_l
 // MyStruct{ old | b: 3, c: 4 }
 // struct_literal_modify: maybe_ref NAME "{" expr "|" struct_literal_named_item ("," struct_literal_named_item)* "}"
 struct_literal_named_item: NAME ":" expr
+
+// array literal
+array_literal: "[" expr ("," expr)* "]"
+array_literal_uninit: "[" expr "]" type_decl
 
 number: DEC_NUMBER
 string: STRING

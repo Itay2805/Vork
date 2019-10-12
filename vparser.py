@@ -155,6 +155,9 @@ class VAstTransformer(Transformer):
     def expr_member_access(self, expr, member_name):
         return ExprMemberAccess(expr, str(member_name))
 
+    def expr_index(self, src, at):
+        return ExprIndex(src, at)
+
     ############################################################
     # Literals
     ############################################################
@@ -175,6 +178,12 @@ class VAstTransformer(Transformer):
         # TODO: Need to extend this to support more than module local structs,
         # TODO: But also external module structs
         return ExprStructLiteral(ref, VUnresolvedType(True, str(name)), list(exprs))
+
+    def array_literal(self, *exprs):
+        return ExprArrayLiteral(list(exprs))
+
+    def array_literal_uninit(self, size, xtype):
+        return ExprArrayLiteralUninit(size, xtype)
 
     ############################################################
     # Type declarations
