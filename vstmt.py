@@ -91,7 +91,10 @@ class StmtDeclare(Stmt):
             name = name[1]
 
             # Override mutable if possible
-            assert not t.mut and not mut_override or not t.mut and mut_override, "Can not assign immutable type to a mutable variable"
+            # 1. both are not mut
+            # 2. assign mut to none mut
+            # 3. both are mut
+            assert not t.mut and not mut_override or t.mut and not mut_override or t.mut and mut_override, "Can not assign immutable type to a mutable variable"
             t = t.copy()
             t.mut = mut_override
             t = module.add_type(t)
@@ -148,3 +151,38 @@ class StmtIf(Stmt):
 
     def __str__(self):
         return f'`if {self.expr}`'
+
+
+class StmtAssign(Stmt):
+
+    def __init__(self, dest, expr):
+        """
+        :type dest: Expr
+        :type expr: Expr
+        """
+        self.dest = dest
+        self.expr = expr
+
+    def type_check(self, module, scope):
+        t0 = self.dest.resolve_type(module, scope)
+        t1 = self.expr.resolve_type(module, scope)
+        assert check_return_type(t0, t1), f"Can not assign `{t1}` to `{t0}`"
+
+        if isinstance(self.dest, ExprIdentifierLiteral):
+            ident = scope.get_identifier(self.dest.name)
+
+            if isinstance(ident, VStructType):
+                assert ident.mut, f"Struct must be mutable to edit it"
+
+            else:
+                assert False
+
+        elif isinstance(self.dest, ExprMemberAccess):
+            tstrct = self.dest.expr.resolve_type(module, scope)
+            assert tstrct.mut, f"Struct must be mutable to edit it"
+
+        else:
+            assert False
+
+    def __str__(self):
+        return f'`{self.dest} = {self.expr}`'

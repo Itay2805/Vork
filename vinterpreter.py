@@ -158,6 +158,16 @@ class VInterpreter:
             for i in range(len(stmt.names)):
                 self.call_stack[-1].set_variable(stmt.names[i][1], results[i])
 
+        elif isinstance(stmt, StmtAssign):
+            if isinstance(stmt.dest, ExprIdentifierLiteral):
+                self.call_stack[-1].set_variable(stmt.dest.name, self._eval_expression(stmt.expr))
+
+            elif isinstance(stmt.dest, ExprMemberAccess):
+                self._eval_expression(stmt.dest.expr)[stmt.dest.member_name] = self._eval_expression(stmt.expr)
+
+            else:
+                assert False, f"Can not assign to expression `{stmt.dest}` ({stmt.dest.__class__})"
+
         else:
             assert False, f"Unknown statement {stmt.__class__.__name__}"
 

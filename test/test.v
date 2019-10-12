@@ -13,7 +13,8 @@ fn unwrap_my_optional_int(opt my_optional_int, default int) int {
 }
 
 fn main() {
-    opt := my_optional_int{true, 100}
+    mut opt := my_optional_int{true, 100}
     c := unwrap_my_optional_int(opt, 0)
+    opt.is_valid = false
     print(c)
 }

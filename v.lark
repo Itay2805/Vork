@@ -46,6 +46,8 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
      | "return" [expr ("," expr)*] _NEWLINE -> stmt_return
      | var_decl_names ":=" expr _NEWLINE -> stmt_var_decl
      | "assert" expr _NEWLINE -> stmt_assert
+     | expr "=" expr _NEWLINE -> stmt_assign
+     | expr _op_assignment expr _NEWLINE -> stmt_op_assign
      | stmt_if
      | _NEWLINE
 
@@ -55,6 +57,9 @@ stmt_if: "if" expr "{" stmt_list "}" (stmt_else | _NEWLINE)
 
 var_decl: maybe_mut NAME
 var_decl_names: var_decl ("," var_decl)*
+
+
+!_op_assignment: ("+="|"-="|"*="|"/="|"%="|"<<="|">>="|"|="|"&="|"^=")
 
 stmt_list: stmt*
 
@@ -138,11 +143,11 @@ stmt_list: stmt*
 
 // Struct literal types
 // MyStruct{1,2,3}
-struct_literal: maybe_mut maybe_ref NAME "{" (expr ("," expr)*)? "}"
+struct_literal: maybe_ref NAME "{" (expr ("," expr)*)? "}"
 // MyStruct{a: 1, b: 2, c: 3}
-struct_literal_named: maybe_mut maybe_ref NAME "{" struct_literal_named_item ("," struct_literal_named_item)* "}"
+struct_literal_named: maybe_ref NAME "{" struct_literal_named_item ("," struct_literal_named_item)* "}"
 // MyStruct{ old | b: 3, c: 4 }
-// struct_literal_modify: maybe_mut maybe_ref NAME "{" expr "|" struct_literal_named_item ("," struct_literal_named_item)* "}"
+// struct_literal_modify: maybe_ref NAME "{" expr "|" struct_literal_named_item ("," struct_literal_named_item)* "}"
 struct_literal_named_item: NAME ":" expr
 
 number: DEC_NUMBER

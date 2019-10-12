@@ -139,6 +139,9 @@ class VAstTransformer(Transformer):
     def stmt_else_if(self, stmt_if):
         return [stmt_if]
 
+    def stmt_assign(self, dest, expr):
+        return StmtAssign(dest, expr)
+
     ############################################################
     # Expressions
     ############################################################
@@ -168,10 +171,10 @@ class VAstTransformer(Transformer):
     def const_false(self):
         return ExprBoolLiteral(False)
 
-    def struct_literal(self, mut, ref, name, *exprs):
+    def struct_literal(self, ref, name, *exprs):
         # TODO: Need to extend this to support more than module local structs,
         # TODO: But also external module structs
-        return ExprStructLiteral(ref, VUnresolvedType(mut, str(name)), list(exprs))
+        return ExprStructLiteral(ref, VUnresolvedType(True, str(name)), list(exprs))
 
     ############################################################
     # Type declarations
