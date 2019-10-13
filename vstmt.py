@@ -47,16 +47,22 @@ class StmtReturn(Stmt):
 
     def type_check(self, module, scope):
         func = scope.get_function()
-        return_types = func.type.return_types  # type: List[VType]
+        return_types = func.type.return_types  # type: List[Tuple[VType, bool]]
         assert len(return_types) == len(self.exprs)
 
         # TODO: Expending multiple return types
 
         for i in range(len(return_types)):
-            rtype = return_types[i]
-            expr_type = self.exprs[i].resolve_type(module, scope)
+            to_type = return_types[i][0]
+            to_mut = return_types[i][1]
+
+            expr = self.exprs[i]
+            expr_type = expr.resolve_type(module, scope)
+            expr_mut = expr.is_mut(module, scope)
+
             assert not isinstance(expr_type, list), "Expending function multiple results into a return is not supported yet"
-            assert check_return_type(rtype, expr_type), f"return expected `{rtype}` for return at {i}, got `{expr_type}`"
+            assert to_type == expr_type, f"return expected `{to_type}` for return at {i}, got `{expr_type}`"
+            assert (expr_mut == to_mut) or (not to_mut and expr_mut)
 
     def __str__(self):
         exprs = ', '.join(map(str, self.exprs))
@@ -65,45 +71,45 @@ class StmtReturn(Stmt):
 
 class StmtDeclare(Stmt):
 
-    def __init__(self, names, expr):
+    def __init__(self, vars, expr):
         """
-        :type names: List[Tuple[bool, str]]
+        :type vars: List[Tuple[bool, str]]
         :type expr: Expr
         """
-        self.names = names
+        self.vars = vars
         self.expr = expr
 
     def type_check(self, module, scope):
         tlist = self.expr.resolve_type(module, scope)
+        mutlist = self.expr.is_mut(module, scope)
 
         # This can handle the multiple return values from a function call
         if not isinstance(tlist, list):
             tlist = [tlist]
+            mutlist = [mutlist]
 
-        assert len(self.names) == len(tlist), f"Number of declarations does not match the number of return values (expected {len(tlist)}, got {len(self.names)})"
+        assert len(self.vars) == len(tlist), f"Number of declarations does not match the number of return values (expected {len(tlist)}, got {len(self.vars)})"
 
-        for i in range(len(self.names)):
-            name = self.names[i]
-            t = tlist[i]
-            default_assertion(t)
+        for i in range(len(self.vars)):
+            var = self.vars[i]
+            var_type = tlist[i]
+            from_mut = mutlist[i]
+            default_assertion(var_type)
 
-            mut_override = name[0]
-            name = name[1]
+            to_mut = var[0]
+            name = var[1]
 
             # Override mutable if possible
             # 1. both are not mut
-            # 2. assign mut to none mut
-            # 3. both are mut
-            assert not t.mut and not mut_override or t.mut and not mut_override or t.mut and mut_override, "Can not assign immutable type to a mutable variable"
-            t = t.copy()
-            t.mut = mut_override
-            t = module.add_type(t)
+            # 2. both are mut
+            # 3. assign mut to none mut
+            assert (to_mut == from_mut) or (from_mut and not to_mut), "Can not assign immutable type to a mutable variable"
 
-            scope.add_variable(name, t)
+            scope.add_variable(name, to_mut, var_type)
 
     def __str__(self):
         s = ''
-        for name in self.names:
+        for name in self.vars:
             s += f'{"mut " if name[0] else ""}{name[1]}'
         s += f' := {self.expr}'
         return s
@@ -173,15 +179,12 @@ class StmtAssign(Stmt):
     def type_check(self, module, scope):
         t0 = self.dest.resolve_type(module, scope)
         t1 = self.expr.resolve_type(module, scope)
-        assert check_return_type(t0, t1), f"Can not assign `{t1}` to `{t0}`"
+        assert t0 == t1, f"Can not assign `{t1}` to `{t0}`"
 
-        if isinstance(self.dest, ExprMemberAccess):
-            tstrct = self.dest.expr.resolve_type(module, scope)
-            assert tstrct.mut, f"{tstrct} must be mutable to edit it"
+        to_mut = self.dest.is_mut(module, scope)
+        from_mut = self.expr.is_mut(module, scope)
 
-        elif isinstance(self.dest, ExprIndex):
-            xtype = self.dest.src.resolve_type(module, scope)
-            assert xtype.mut, f"{xtype} must be mutable to edit it"
+        assert to_mut and from_mut, f"can not assign from mut `{from_mut}` to mut `{to_mut}` ({self})"
 
     def __str__(self):
         return f'`{self.dest} = {self.expr}`'
@@ -246,13 +249,13 @@ class StmtForeach(Stmt):
 
         if isinstance(t, VArray):
             if self.index_name is not None:
-                scope.add_variable(self.index_name, VInt(False))
-            scope.add_variable(self.item_name, t.xtype)
+                scope.add_variable(self.index_name, False, VInt)
+            scope.add_variable(self.item_name, False, t.xtype)
 
         elif isinstance(t, VMap):
             if self.index_name is not None:
-                scope.add_variable(self.index_name, t.key_type)
-            scope.add_variable(self.item_name, t.value_type)
+                scope.add_variable(self.index_name, False, t.key_type)
+            scope.add_variable(self.item_name, False, t.value_type)
 
         else:
             assert False, f"type `{t}` is not iterable"

@@ -17,21 +17,20 @@ _module_item: fn_decl
             | struct_decl
             | module_decl
             | _NEWLINE
-//            | type_alias_decl
 
 // Misc
 
 module_decl: "module" NAME ("." NAME)* _NEWLINE
-//type_alias_decl: "type" NAME type_decl _NEWLINE
 
 // Function declaration
 
 fn_decl: maybe_pub "fn" NAME "(" fn_params ")" fn_return "{" stmt_list "}" _NEWLINE
 fn_params: [fn_param ("," fn_param)*]
-fn_param: NAME type_decl | NAME
-fn_return: [type_decl | "(" type_decl ("," type_decl)+ ")"]
+fn_param: NAME maybe_mut type_decl | NAME
+fn_return: [maybe_mut type_decl | "(" maybe_mut type_decl ("," maybe_mut type_decl)+ ")"]
 
 // Struct declaration
+// TODO: support for changing mutability of fields
 
 struct_decl: "struct" NAME "{" _NEWLINE? embedded_struct_field struct_fields "}"
 struct_fields: struct_field*
@@ -42,13 +41,15 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
 // Statements
 ///////////////////////////////////////////////////
 
-?stmt: expr _NEWLINE -> stmt_expr
-     | "return" [expr ("," expr)*] _NEWLINE -> stmt_return
-     | "assert" expr _NEWLINE -> stmt_assert
-     | expr _op_assignment expr _NEWLINE -> stmt_op_assign
-     | "for" NAME "in" expr "{" stmt_list "}" -> stmt_foreach
-     | "for" NAME "," NAME "in" expr "{" stmt_list "}" -> stmt_foreach_indexed
-     | "for" (maybe_var_decl|stmt_assignment) ";" expr ";" (expr | stmt_assignment) "{" stmt_list "}" -> stmt_for
+// TODO: Add back C based for loops
+// TODO: | "for" (maybe_var_decl|stmt_assignment) ";" _expr ";" (_expr | stmt_assignment) "{" stmt_list "}" -> stmt_for
+
+?stmt: _expr _NEWLINE -> stmt_expr
+     | "return" [_expr ("," _expr)*] _NEWLINE -> stmt_return
+     | "assert" _expr _NEWLINE -> stmt_assert
+     | _expr _op_assignment _expr _NEWLINE -> stmt_op_assign
+     | "for" NAME "in" _expr "{" stmt_list "}" -> stmt_foreach
+     | "for" NAME "," NAME "in" _expr "{" stmt_list "}" -> stmt_foreach_indexed
      | "for" "{" stmt_list "}"-> stmt_forever
      | "break" -> stmt_break
      | "continue" -> stmt_continue
@@ -57,12 +58,12 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
      | stmt_if
      | _NEWLINE
 
-stmt_var_decl: var_decl_names ":=" expr
+stmt_var_decl: var_decl_names ":=" _expr
 !maybe_var_decl: stmt_var_decl?
 
-?stmt_assignment: expr "=" expr -> stmt_assign
+?stmt_assignment: _expr "=" _expr -> stmt_assign
 
-stmt_if: "if" expr "{" stmt_list "}" (stmt_else | _NEWLINE)
+stmt_if: "if" _expr "{" stmt_list "}" (stmt_else | _NEWLINE)
 ?stmt_else: "else" "{" stmt_list "}" _NEWLINE -> stmt_else
           | "else" stmt_if -> stmt_else_if
 
@@ -82,13 +83,9 @@ stmt_list: stmt*
 // the full expression precendence
 //************************************
 
-?expr: expr "." NAME -> expr_member_access
-     | expr "(" (expr ("," expr)*)? ")" -> expr_fn_call
-     | expr "[" expr "]" -> expr_index
-     | expr_postfix
+_expr: expr_postfix
 
-?expr_postfix:
-             | expr_unary _op_postfix -> expr_postfix
+?expr_postfix: expr_unary _op_postfix -> expr_postfix
              | expr_unary
 
 ?expr_unary: _op_unary expr_multiplicative -> expr_unary
@@ -121,8 +118,8 @@ stmt_list: stmt*
 ?expr_logical_and: expr_logical_or _op_logical_and expr_logical_or -> expr_binary
                  | expr_logical_or
 
-?expr_logical_or: expr_atom _op_logical_or expr_atom -> expr_binary
-                | expr_atom
+?expr_logical_or: expr_others _op_logical_or expr_others -> expr_binary
+                | expr_others
 
 // all the operators
 !_op_postfix: ("++"|"--")
@@ -138,7 +135,12 @@ stmt_list: stmt*
 !_op_logical_and: "&&"
 !_op_logical_or: "||"
 
-?expr_atom: "(" expr ")"
+?expr_others: _expr "." NAME -> expr_member_access
+            | _expr "(" (maybe_mut _expr ("," maybe_mut _expr)*)? ")" -> expr_fn_call
+            | _expr "[" _expr "]" -> expr_index
+            | expr_literals
+
+?expr_literals: "(" _expr ")"
           | "none" -> const_none
           | "false" -> const_false
           | "true" -> const_true
@@ -156,16 +158,16 @@ stmt_list: stmt*
 
 // Struct literal types
 // MyStruct{1,2,3}
-struct_literal: maybe_ref NAME "{" (expr ("," expr)*)? "}"
+struct_literal: maybe_ref NAME "{" (_expr ("," _expr)*)? "}"
 // MyStruct{a: 1, b: 2, c: 3}
 struct_literal_named: maybe_ref NAME "{" struct_literal_named_item ("," struct_literal_named_item)* "}"
 // MyStruct{ old | b: 3, c: 4 }
-// struct_literal_modify: maybe_ref NAME "{" expr "|" struct_literal_named_item ("," struct_literal_named_item)* "}"
-struct_literal_named_item: NAME ":" expr
+// struct_literal_modify: maybe_ref NAME "{" _expr "|" struct_literal_named_item ("," struct_literal_named_item)* "}"
+struct_literal_named_item: NAME ":" _expr
 
 // array literal
-array_literal: "[" expr ("," expr)* "]"
-array_literal_uninit: "[" expr "]" type_decl
+array_literal: "[" _expr ("," _expr)* "]"
+array_literal_uninit: "[" _expr "]" type_decl
 
 number: DEC_NUMBER
 string: STRING
@@ -181,11 +183,11 @@ ident: NAME
           | type_ref
           | type_opt
 
-type_array: maybe_mut "[" "]" type_decl
-type_map: maybe_mut "map" "[" type_decl "]" type_decl
-type_ref: maybe_mut "&" type_decl
-type_opt: maybe_mut "?" type_decl
-type_ident: maybe_mut NAME
+type_array: "[" "]" type_decl
+type_map: "map" "[" type_decl "]" type_decl
+type_ref: "&" type_decl
+type_opt: "?" type_decl
+type_ident: NAME
 
 !maybe_pub: "pub"?
 !maybe_mut: "mut"?

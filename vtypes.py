@@ -4,23 +4,17 @@ from typing import *
 
 class VType:
 
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        self.mut = mut
+    def __init__(self):
+        self.module = None  # type: VModule
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.mut == other.mut
+        return isinstance(other, self.__class__)
 
     def copy(self):
         return copy(self)
 
 
 class VVoidType(VType):
-    
-    def __init__(self):
-        super(VVoidType, self).__init__(False)
 
     def __eq__(self, other):
         return False
@@ -31,147 +25,34 @@ class VVoidType(VType):
 
 class VUnresolvedType(VType):
 
-    def __init__(self, mut, type_name):
-        super(VUnresolvedType, self).__init__(mut)
+    def __init__(self, module, type_name):
+        super(VUnresolvedType, self).__init__()
         self.type_name = type_name
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.mut == other.mut and self.type_name == other.type_name
+        return isinstance(other, self.__class__) and self.type_name == other.type_name
 
     def __str__(self):
         return f'{self.type_name}'
 
 
 class VIntegerType(VType):
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VIntegerType, self).__init__(mut)
 
+    def __init__(self, bits, sign):
+        super(VIntegerType, self).__init__()
+        self.bits = bits
+        self.sign = sign
 
-#
-# The builtin V types
-#
-
-class VI8(VIntegerType):
-
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VI8, self).__init__(mut)
+    def __eq__(self, other):
+        if isinstance(other, VIntegerType):
+            return self.bits == other.bits and self.sign == other.sign
+        return False
 
     def __str__(self):
-        return f'{"mut " if self.mut else ""}i8'
+        return f"{'i' if self.sign else 'u'}{self.bits}"
 
 
-class VI16(VIntegerType):
-
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VI16, self).__init__(mut)
-
-    def __str__(self):
-        return f'{"mut " if self.mut else ""}i16'
-
-
-class VInt(VIntegerType):
-
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VInt, self).__init__(mut)
-
-    def __str__(self):
-        return f'{"mut " if self.mut else ""}int'
-
-
-class VI64(VIntegerType):
-
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VI64, self).__init__(mut)
-
-    def __str__(self):
-        return f'{"mut " if self.mut else ""}i64'
-
-
-class VI128(VIntegerType):
-
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VI128, self).__init__(mut)
-
-    def __str__(self):
-        return f'{"mut " if self.mut else ""}i128'
-
-
-class VByte(VIntegerType):
-
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VByte, self).__init__(mut)
-
-    def __str__(self):
-        return f'{"mut " if self.mut else ""}byte'
-
-
-class VU16(VIntegerType):
-
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VU16, self).__init__(mut)
-
-    def __str__(self):
-        return f'{"mut " if self.mut else ""}u16'
-
-
-class VU32(VIntegerType):
-
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VU32, self).__init__(mut)
-
-    def __str__(self):
-        return f'{"mut " if self.mut else ""}u32'
-
-
-class VU64(VIntegerType):
-
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VU64, self).__init__(mut)
-
-    def __str__(self):
-        return f'{"mut " if self.mut else ""}u64'
-
-
-class VU128(VIntegerType):
-
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VU128, self).__init__(mut)
-
-    def __str__(self):
-        return f'{"mut " if self.mut else ""}u128'
+VInt = VIntegerType(32, True)
 
 #
 # Other types
@@ -180,110 +61,107 @@ class VU128(VIntegerType):
 
 class VBool(VType):
 
-    def __init__(self, mut):
-        """
-        :type mut: bool
-        """
-        super(VBool, self).__init__(mut)
-
     def __str__(self):
-        return f'{"mut " if self.mut else ""}bool'
+        return f'bool'
 
 
 class VArray(VType):
 
-    def __init__(self, mut, xtype):
+    def __init__(self, xtype):
         """
-        :type mut: bool
         :type xtype: VType
         """
-        super(VArray, self).__init__(mut)
+        super(VArray, self).__init__()
         self.xtype = xtype
 
     def __eq__(self, other):
-        if isinstance(other, VArray) and self.mut == other.mut:
+        if isinstance(other, VArray):
             return self.xtype == other.xtype
         return False
 
     def __str__(self):
-        return f'{"mut " if self.mut else ""}[]{self.xtype}'
+        return f'[]{self.xtype}'
 
 
 class VRef(VType):
 
-    def __init__(self, mut, type):
+    def __init__(self, type):
         """
-        :type mut: bool
         :type type: VType
         """
-        super(VRef, self).__init__(mut)
+        super(VRef, self).__init__()
         self.type = type
 
     def __eq__(self, other):
-        if isinstance(other, VRef) and self.mut == other.mut:
+        if isinstance(other, VRef):
             return self.type == other.type
         return False
 
     def __str__(self):
-        return f'{"mut " if self.mut else ""}&{self.type}'
+        return f'&{self.type}'
 
 
 class VOptional(VType):
 
-    def __init__(self, mut, xtype):
+    def __init__(self, xtype):
         """
-        :type mut: bool
         :type xtype: VType
         """
-        super(VOptional, self).__init__(mut)
+        super(VOptional, self).__init__()
         self.xtype = xtype
 
     def __eq__(self, other):
-        if isinstance(other, VOptional) and self.mut == other.mut:
+        if isinstance(other, VOptional):
             return self.xtype == other.xtype
         return False
 
     def __str__(self):
-        return f'{"mut " if self.mut else ""}?{self.xtype}'
+        return f'?{self.xtype}'
 
 
 class VMap(VType):
 
-    def __init__(self, mut, key, value):
+    def __init__(self, key, value):
         """
-        :type mut: bool
         :type key: VType
         :type value: VType
         """
-        super(VMap, self).__init__(mut)
+        super(VMap, self).__init__()
         self.key_type = key
         self.value_type = value
 
     def __eq__(self, other):
-        if isinstance(other, VMap) and self.mut == other.mut:
+        if isinstance(other, VMap):
             return self.key_type == other.key_type and self.value_type == other.value_type
         return False
 
     def __str__(self):
-        return f'{"mut " if self.mut else ""}map[{self.key_type}]{self.value_type}'
+        return f'map[{self.key_type}]{self.value_type}'
 
 
 class VFunctionType(VType):
 
-    def __init__(self, mut):
-        super(VFunctionType, self).__init__(mut)
-        self.param_types = []  # type: List[VType]
-        self.return_types = []  # type: List[VType]
+    def __init__(self):
+        super(VFunctionType, self).__init__()
+        self.param_types = []  # type: List[Tuple[VType, bool]]
+        self.return_types = []  # type: List[Tuple[VType, bool]]
 
-    def add_param(self, xtype):
+    def add_param(self, mut, xtype):
         """
+        :type mut: bool
         :type type: VType
         """
-        assert xtype is not None
-        self.param_types.append(xtype)
+        self.param_types.append((xtype, mut))
+
+    def add_return_type(self, mut, xtype):
+        """
+        :type mut: bool
+        :type type: VType
+        """
+        self.return_types.append((xtype, mut))
 
     def __eq__(self, other):
-        if isinstance(other, VFunctionType) and self.mut == other.mut:
+        if isinstance(other, VFunctionType):
             if self.return_types != other.return_types:
                 return False
             if self.param_types != other.param_types:
@@ -293,33 +171,53 @@ class VFunctionType(VType):
 
     def __str__(self):
         # Format params
-        params = ', '.join([str(param) for param in self.param_types])
+        params = ', '.join(['mut ' if param[1] else '' + str(param[0]) for param in self.param_types])
 
         # Format return types
-        return_types = ', '.join([f'{return_type}' for return_type in self.return_types])
+        return_types = ', '.join(['mut ' if return_type[1] else '' + str(return_type[0]) for return_type in self.return_types])
         if len(self.return_types) > 1:
             return_types = f'({return_types})'
 
-        return f'{"mut " if self.mut else ""}fn ({params}) {return_types}'
+        return f'fn ({params}) {return_types}'
+
+
+ACCESS_PRIVATE = 'private'
+ACCESS_PRIVATE_MUT = 'mut'
+ACCESS_PUBLIC = 'pub'
+ACCESS_PUBLIC_PROTECTED_MUT = 'pub mut'
+ACCESS_PUBLIC_MUT = 'pub mut mut'
+
+
+class VStructField:
+
+    def __init__(self, name, access_mod, xtype):
+        """
+
+        :type name: str
+        :type access_mod: str
+        :type xtype: VTYpe
+        """
+        self.name = name
+        self.access_mod = access_mod
+        self.xtype = xtype
 
 
 class VStructType(VType):
 
-    def __init__(self, mut, name, embedded, fields):
+    def __init__(self, embedded, fields):
         """
         :type name: str
         :type embedded: VStructType
-        :type fields: List[Tuple[str, VType]]
+        :type fields: List[VStructField]
         """
-        super(VStructType, self).__init__(mut)
-        self.name = name
+        super(VStructType, self).__init__()
         self.embedded = embedded
         self.fields = fields
 
     def get_field(self, name):
         # Check in our fields
         for field in self.fields:
-            if field[0] == name:
+            if field.name == name:
                 return field
 
         # Check embedded type
@@ -329,9 +227,7 @@ class VStructType(VType):
         return None
 
     def __eq__(self, other):
-        if isinstance(other, VStructType) and self.mut == other.mut:
-            if self.name != other.name:
-                return False
+        if isinstance(other, VStructType):
             if self.embedded != other.embedded:
                 return False
             if self.fields != other.fields:
@@ -342,10 +238,19 @@ class VStructType(VType):
     def __str__(self):
         s = f'struct '
         s += '{\n'
+
         if self.embedded is not None:
             s += f'\t{self.embedded}\n'
+
+        last_ac = None
         for field in self.fields:
-            s += f'\t{field[0]} {field[1]}\n'
+
+            if last_ac != field.access_mod:
+                last_ac = field.access_mod
+                s += f'{last_ac}:\n'
+
+            s += f'\t{field.name} {field.xtype}\n'
+
         s += '}'
         return s
 
@@ -375,29 +280,3 @@ def default_value_for_type(xtype):
         return ExprIntegerLiteral(0)
 
     return default[xtype.__class__]
-
-
-def check_return_type(ret_type, xtype):
-    """
-    :type ret_type: VType
-    :type xtype: VType
-    :rtype: bool
-    """
-
-    # Check if types are the same
-    if ret_type == xtype:
-        return True
-
-    # Check mut -> not mut
-    xtype = xtype.copy()
-    xtype.mut = False
-    if ret_type == xtype:
-        return True
-
-    # Check if both are integer types
-    # TODO: Only allow integers with lower bits to higher bits and same sign
-    # TODO: Should probably make this cast the return expression or something
-    if isinstance(ret_type, VIntegerType) and isinstance(xtype, VIntegerType):
-        return True
-
-    return False

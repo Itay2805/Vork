@@ -28,7 +28,10 @@ class ExprIntegerLiteral(Expr):
         """
 
         # Always return a type of int, to override it use the casts
-        return module.resolve_type(VInt(False))
+        return module.resolve_type(VInt)
+
+    def is_mut(self, module, scope):
+        return True
 
     def __str__(self):
         return str(self.num)
@@ -43,7 +46,10 @@ class ExprBoolLiteral(Expr):
         self.b = b
 
     def resolve_type(self, module, scope):
-        return module.resolve_type(VBool(False))
+        return module.resolve_type(VBool())
+
+    def is_mut(self, module, scope):
+        return True
 
     def __str__(self):
         return str(self.b).lower()
@@ -97,6 +103,13 @@ class ExprStructLiteral(Expr):
 
         return module.add_type(self.xtype)
 
+    def is_mut(self, module, scope):
+        return True
+
+    # TODO: This
+    # def __str__(self):
+    #     pass
+
 
 class ExprIdentifierLiteral(Expr):
 
@@ -105,8 +118,6 @@ class ExprIdentifierLiteral(Expr):
 
     def resolve_type(self, module, scope):
         ident = scope.get_identifier(self.name)
-        if ident is None:
-            ident = module.get_identifier(self.name)
         assert ident is not None, f"Unknown identifier `{self.name}`"
 
         if isinstance(ident, VFunction) or isinstance(ident, VBuiltinFunction):
@@ -117,6 +128,21 @@ class ExprIdentifierLiteral(Expr):
 
         elif isinstance(ident, VType):
             return ident
+
+        else:
+            assert False, f"Unexpected identifier type {ident.__class__}"
+
+    def is_mut(self, module, scope):
+        ident = scope.get_identifier(self.name)
+
+        if isinstance(ident, VFunction) or isinstance(ident, VBuiltinFunction):
+            return False
+
+        elif isinstance(ident, VVariable):
+            return ident.mut
+
+        elif isinstance(ident, VType):
+            return False
 
         else:
             assert False, f"Unexpected identifier type {ident.__class__}"
@@ -144,12 +170,12 @@ class ExprBinary(Expr):
         '>>': [VIntegerType],
         '<<': [VIntegerType],
 
-        '==': ([VIntegerType, VBool], VBool(False)),
-        '!=': ([VIntegerType, VBool], VBool(False)),
-        '>=': ([VIntegerType, VBool], VBool(False)),
-        '>':  ([VIntegerType, VBool], VBool(False)),
-        '<=': ([VIntegerType, VBool], VBool(False)),
-        '<':  ([VIntegerType, VBool], VBool(False)),
+        '==': ([VIntegerType, VBool], VBool()),
+        '!=': ([VIntegerType, VBool], VBool()),
+        '>=': ([VIntegerType, VBool], VBool()),
+        '>':  ([VIntegerType, VBool], VBool()),
+        '<=': ([VIntegerType, VBool], VBool()),
+        '<':  ([VIntegerType, VBool], VBool()),
     }
 
     def __init__(self, op, expr0, expr1):
@@ -171,7 +197,7 @@ class ExprBinary(Expr):
 
         # The types need to be the same
         # TODO: have this add casts or something
-        assert check_return_type(t0, t1), f'Binary operators must have the same type on both sides (got `{t0}` and `{t1}`)'
+        assert t0 == t1, f'Binary operators must have the same type on both sides (got `{t0}` and `{t1}`)'
 
         # Make sure we can use the operator on the given type
         good = False
@@ -195,6 +221,9 @@ class ExprBinary(Expr):
 
         return got_type
 
+    def is_mut(self, module, scope):
+        return True
+
     def __str__(self):
         return f'{self.expr0} {self.op} {self.expr1}'
 
@@ -207,7 +236,7 @@ class ExprFunctionCall(Expr):
     def __init__(self, func_expr, arguments):
         """
         :type func_expr: Expr
-        :type arguments: List[Expr]
+        :type arguments: List[Tuple(bool, Expr)]
         """
         self.func_expr = func_expr
         self.arguments = arguments
@@ -220,14 +249,18 @@ class ExprFunctionCall(Expr):
         if isinstance(func, VFunctionType):
             assert len(self.arguments) == len(func.param_types), f"expected {len(func.param_types)} arguments, got {len(self.arguments)}"
             for i in range(len(self.arguments)):
-                t0 = self.arguments[i].resolve_type(module, scope)
-                default_assertion(t0)
-                t1 = func.param_types[i]
-                assert check_return_type(t1, t0), f'function agument at `{i}` expected `{t1}`, got `{t0}`'
+                from_mut = self.arguments[i][0]
+                from_expr = self.arguments[i][1]
+                from_type = from_expr.resolve_type(module, scope)
+                to_mut = func.param_types[i][1]
+                to_type = func.param_types[i][0]
+                assert from_type == to_type, f'function agument at `{i}` expected `{to_type}`, got `{from_type}`'
+                assert to_mut == from_mut, f'function agument at `{i}` expected mut to be `{to_mut}`, got `{from_mut}`'
+                assert from_mut == from_expr.is_mut(module, scope), f'tried to convert mut`{from_mut}`, got `{from_expr.is_mut(module, scope)}`'
 
             # If returns one type, return 1 type
             if len(func.return_types) == 1:
-                return func.return_types[0]
+                return func.return_types[0][0]
 
             # If does not return anything, return void type
             elif len(func.return_types) == 0:
@@ -236,20 +269,29 @@ class ExprFunctionCall(Expr):
             # If has multiple types just return them all
             # TODO: make sure to handle list of types everywhere
             else:
-                return func.return_types
+                return [ret[0] for ret in func.return_types]
 
         # int casts
         elif isinstance(func, VIntegerType):
             assert len(self.arguments) == 1, f"expected 1 argument for cast, got {len(self.arguments)}"
-            t = self.arguments[0].resolve_type(module, scope)
+            t = self.arguments[0][1].resolve_type(module, scope)
             assert isinstance(t, VIntegerType), f"Integer cast requires an integer (got `{t}`)"
             return func
 
         else:
             assert False, f"the type `{func}` is not callable"
 
+    def is_mut(self, module, scope):
+        mut = [arg[1].is_mut(module, scope) for arg in self.arguments]
+        if len(mut) == 1:
+            return mut[0]
+        elif len(mut) == 0:
+            return False
+        else:
+            return mut
+
     def __str__(self):
-        args = ', '.join(map(str, self.arguments))
+        args = ', '.join(['mut 'if arg[0] else '' + str(arg[1]) for arg in self.arguments])
         return f'{self.func_expr}({args})'
 
 
@@ -270,19 +312,48 @@ class ExprMemberAccess(Expr):
         t = self.expr.resolve_type(module, scope)
         default_assertion(t)
 
+        # In a vstruct
         if isinstance(t, VStructType):
             newt = t.get_field(self.member_name)
             if newt is not None:
-                return newt[1]
+                ac = newt.access_mod
+
+                # Check if visible
+                if ac == ACCESS_PRIVATE or ac == ACCESS_PRIVATE_MUT:
+                    assert t.module == scope.get_function().module, f"field `{t.name}.{self.member_name}` is not visible"
+
+                return newt.xtype
 
         elif isinstance(t, VArray):
             if self.member_name == 'len':
-                return VInt(False)
+                return module.add_type(VInt())
 
         else:
             assert False, f"Type `{t}` does not have any members"
 
         assert False, f"Type `{t}` does not have member `{self.member_name}`"
+
+    def is_mut(self, module, scope):
+        if not self.expr.is_mut(module, scope):
+            return False
+
+        t = self.expr.resolve_type(module, scope)
+
+        if isinstance(t, VStructType):
+            field = t.get_field(self.member_name)
+            ac = field.access_mod
+
+            # Never mut
+            if ac == ACCESS_PRIVATE or ac == ACCESS_PUBLIC:
+                return False
+
+            # Only mut in same module
+            elif ac == ACCESS_PRIVATE_MUT or ACCESS_PUBLIC_PROTECTED_MUT:
+                return scope.get_function().get_module() == t.module
+
+            # Always mut
+            elif ac == ACCESS_PUBLIC_MUT:
+                return True
 
     def __str__(self):
         return f'{self.expr}.{self.member_name}'
@@ -309,11 +380,14 @@ class ExprIndex(Expr):
             return t.xtype
 
         elif isinstance(t, VMap):
-            assert check_return_type(at_type, t.key_type), f"map of type {t} expected key {t.key_type}, got {at_type}"
+            assert at_type == t.key_type, f"map of type {t} expected key {t.key_type}, got {at_type}"
             return t.value_type
 
         else:
             assert False, f"Index operator not supported for type {t}"
+
+    def is_mut(self, module, scope):
+        return self.src.is_mut(module, scope)
 
     def __str__(self):
         return f'{self.src}[{self.at}]'
@@ -339,12 +413,15 @@ class ExprArrayLiteral(Expr):
                 xtype = expr.resolve_type(module, scope)
             else:
                 xt = expr.resolve_type(module, scope)
-                assert check_return_type(xtype, xt), f"Array item at index `{i}` does not match type (expected `{xtype}`, got `{xt}`)"
+                assert xtype == xt, f"Array item at index `{i}` does not match type (expected `{xtype}`, got `{xt}`)"
             i += 1
 
         default_assertion(xtype)
 
-        return module.add_type(VArray(True, xtype))
+        return module.add_type(VArray(xtype))
+
+    def is_mut(self, module, scope):
+        return True
 
     def __str__(self):
         return "[" + ','.join([str(expr) for expr in self.exprs]) + "]"
@@ -368,7 +445,10 @@ class ExprArrayLiteralUninit(Expr):
         self.xtype = module.resolve_type(self.xtype)
         default_assertion(self.xtype)
         assert isinstance(self.length.resolve_type(module, scope), VIntegerType), "Length of array must be an integer"
-        return module.add_type(VArray(True, self.xtype))
+        return module.add_type(VArray(self.xtype))
+
+    def is_mut(self, module, scope):
+        return True
 
     def __str__(self):
         return f'[{self.length}]{self.xtype}'

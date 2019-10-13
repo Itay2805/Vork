@@ -1,15 +1,14 @@
 module main
 
-fn range(len int) []int {
-    mut arr := [len]int
-    for i := 0; i < len; i = i + 1 {
-        arr[i] = i
+fn modify_my_array(arr mut []int) []int {
+    for i, item in arr {
+        arr[i] = item + 1
     }
     return arr
 }
 
 fn main() {
-    for item in range(6) {
+    for item in modify_my_array(mut [1,2,3]) {
         print(item)
     }
 }

@@ -58,17 +58,17 @@ class VWorkspace:
 
         # Some stuff are defined by the compiler, like
         # types, native functions and more, so we add them here
-        b.add_type(VI8(False), 'i8')
-        b.add_type(VI16(False), 'i16')
-        b.add_type(VInt(False), 'int')
-        b.add_type(VI64(False), 'i64')
-        b.add_type(VI128(False), 'i128')
-        b.add_type(VByte(False), 'byte')
-        b.add_type(VU16(False), 'u16')
-        b.add_type(VU32(False), 'u32')
-        b.add_type(VU64(False), 'u64')
-        b.add_type(VU128(False), 'u128')
-        b.add_type(VBool(False), 'bool')
+        b.add_type(VIntegerType(8, True), 'i8')
+        b.add_type(VIntegerType(16, True), 'i16')
+        b.add_type(VIntegerType(32, True), 'int')
+        b.add_type(VIntegerType(64, True), 'i64')
+        b.add_type(VIntegerType(128, True), 'i128')
+        b.add_type(VIntegerType(8, False), 'byte')
+        b.add_type(VIntegerType(16, False), 'u16')
+        b.add_type(VIntegerType(32, False), 'u32')
+        b.add_type(VIntegerType(64, False), 'u64')
+        b.add_type(VIntegerType(128, False), 'u128')
+        b.add_type(VBool(), 'bool')
 
         b.add_builtin_function(VBuiltinFunction('print', ['int'], []))
 
@@ -92,6 +92,7 @@ class VWorkspace:
 
         # Create the module
         module = VModule()
+        module.workspace = self
         module.set_module_name(name)
         self.modules[name] = module
 

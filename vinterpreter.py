@@ -3,6 +3,21 @@ from vexpr import *
 from typing import *
 
 
+def assert_integer_cast(type, value):
+    """
+    :type type: VIntegerType
+    :param value:
+    :return:
+    """
+    if type.sign:
+        max_val = (2 ** (type.bits / 2)) - 1
+        min_val = (2 ** (type.bits / 2)) * -1
+        assert min_val < value < max_val, f"can not cast from number `{value}` to `{type}` (min: {min_val}, max: {max_val})"
+    else:
+        max_val = (2 ** type.bits) - 1
+        assert 0 < value < max_val, f"can not cast from number `{value}` to `{type}` (min: 0, max: {max_val})"
+
+
 class CallStackFrame:
 
     def __init__(self, function, module):
@@ -77,6 +92,8 @@ class VInterpreter:
             return expr.b
 
         elif isinstance(expr, ExprIntegerLiteral):
+            # TODO: Need a way to call this with bigger numbers
+            assert_integer_cast(VInt, expr.num)
             return expr.num
 
         elif isinstance(expr, ExprIdentifierLiteral):
@@ -86,8 +103,7 @@ class VInterpreter:
             return eval(f'{self._eval_expression(expr.expr0)} {expr.op} {self._eval_expression(expr.expr1)}')
 
         elif isinstance(expr, ExprFunctionCall):
-            from copy import copy
-            ret = self._eval_function(self._eval_expression(expr.func_expr), [copy(self._eval_expression(e)) for e in expr.arguments])
+            ret = self._eval_function(self._eval_expression(expr.func_expr), [self._eval_expression(e[1]) for e in expr.arguments])
             if isinstance(ret, tuple):
                 if len(ret) == 1:
                     return ret[0]
@@ -144,10 +160,9 @@ class VInterpreter:
             self._eval_expression(stmt.expr)
 
         elif isinstance(stmt, StmtReturn):
-            from copy import copy
             exprs = []
             for e in stmt.exprs:
-                exprs.append(copy(self._eval_expression(e)))
+                exprs.append(self._eval_expression(e))
             self.call_stack.pop()
             return tuple(exprs)
 
@@ -179,12 +194,16 @@ class VInterpreter:
             if not isinstance(results, tuple):
                 results = [results]
 
-            for i in range(len(stmt.names)):
-                self.call_stack[-1].set_variable(stmt.names[i][1], results[i])
+            for i in range(len(results)):
+                self.call_stack[-1].set_variable(stmt.vars[i][1], results[i])
 
         elif isinstance(stmt, StmtAssign):
             if isinstance(stmt.dest, ExprIdentifierLiteral):
-                self.call_stack[-1].set_variable(stmt.dest.name, self._eval_expression(stmt.expr))
+                t = stmt.expr.resolve_type(module, scope)
+                num = self._eval_expression(stmt.expr)
+                if isinstance(t, VIntegerType):
+                    assert_integer_cast(t, num)
+                self.call_stack[-1].set_variable(stmt.dest.name, num)
 
             elif isinstance(stmt.dest, ExprMemberAccess):
                 self._eval_expression(stmt.dest.expr)[stmt.dest.member_name] = self._eval_expression(stmt.expr)
@@ -329,6 +348,7 @@ class VInterpreter:
 
         # Integer cast
         elif isinstance(func, VIntegerType):
+            assert_integer_cast(func, params[0])
             return params[0]
 
         else:

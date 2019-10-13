@@ -27,7 +27,7 @@ class VAstTransformer(Transformer):
         for arg in args:
             # Add function to module
             if isinstance(arg, VFunction):
-                arg.module = module
+                arg.type.module = module
                 module.add_function(arg.name, arg)
 
             # This is a type alias
@@ -39,6 +39,10 @@ class VAstTransformer(Transformer):
             # already handled the module decl
             elif isinstance(arg, tuple) and arg[0] == 'module' and isinstance(arg[1], VModule):
                 pass
+
+            elif isinstance(arg, VStruct):
+                arg.type.module = module
+                arg.type = module.add_type(arg.type)
 
             # Unknown module item
             else:
@@ -64,10 +68,13 @@ class VAstTransformer(Transformer):
         func = VFunction()
         func.pub = pub
         func.name = str(name)
+
         for param in params:
-            func.add_param(param[0], param[1])
+            func.add_param(param[0], param[2], param[1])
+
         for rtype in return_types:
-            func.add_return_type(rtype)
+            func.add_return_type(rtype[0], rtype[1])
+
         func.root_scope.code = stmts
         func.root_scope.fix_children()
         return func
@@ -76,26 +83,41 @@ class VAstTransformer(Transformer):
         params = list(params)
         last_type = None
         for i in reversed(range(len(params))):
-            if params[i][1] is None:
+            param = params[i]
+            if param[1] is None:
                 assert last_type is not None
-                params[i] = (params[i][0], last_type)
+                params[i] = (param[0], last_type, param[2])
             else:
-                last_type = params[i][1]
+                last_type = param[1]
         return params
 
     def fn_param(self, *args):
         if len(args) == 1:
-            return str(args[0]), None
+            return str(args[0]), None, False
         else:
-            return str(args[0]), args[1]
+            return str(args[0]), args[2], args[1]
 
     def fn_return(self, *return_types):
-        return list(return_types)
+        rets = []
+        for i in range(len(return_types) // 2):
+            rets.append((return_types[i], return_types[i + 1]))
+        return rets
 
     # Struct declaration
 
     def struct_decl(self, name, embedded, fields):
-        return str(name), VStructType(False, str(name), embedded, fields)
+
+        # Process the fields and their access mods
+        f = []
+        ac = ACCESS_PRIVATE
+        for field in fields:
+            if isinstance(field, VStructField):
+                field.access_mod = ac
+                f.append(field)
+            elif isinstance(field, str):
+                ac = field
+
+        return VStruct(str(name), VStructType(embedded, f))
 
     def struct_fields(self, *fields):
         return list(fields)
@@ -104,7 +126,8 @@ class VAstTransformer(Transformer):
         return str(name), xtype
 
     def embedded_struct_field(self, *xtype):
-        return VUnresolvedType(xtype[0], xtype[1]) if len(xtype) > 0 else None
+        # TODO: return VUnresolvedType(xtype[0], xtype[1]) if len(xtype) > 0 else None
+        return None
 
     ############################################################
     # Statements
@@ -171,7 +194,10 @@ class VAstTransformer(Transformer):
         return ExprBinary(op, expr0, expr1)
 
     def expr_fn_call(self, fn_expr, *params):
-        return ExprFunctionCall(fn_expr, list(params))
+        parms = []
+        for i in range(len(params) // 2):
+            parms.append((params[i], params[i + 1]))
+        return ExprFunctionCall(fn_expr, parms)
 
     def expr_member_access(self, expr, member_name):
         return ExprMemberAccess(expr, str(member_name))
@@ -198,7 +224,7 @@ class VAstTransformer(Transformer):
     def struct_literal(self, ref, name, *exprs):
         # TODO: Need to extend this to support more than module local structs,
         # TODO: But also external module structs
-        return ExprStructLiteral(ref, VUnresolvedType(True, str(name)), list(exprs))
+        return ExprStructLiteral(ref, VUnresolvedType(None, str(name)), list(exprs))
 
     def array_literal(self, *exprs):
         return ExprArrayLiteral(list(exprs))
@@ -210,20 +236,20 @@ class VAstTransformer(Transformer):
     # Type declarations
     ############################################################
 
-    def type_ident(self, mut, xtype):
-        return VUnresolvedType(mut, xtype)
+    def type_ident(self, xtype):
+        return VUnresolvedType(None, xtype)
 
-    def type_array(self, mut, xtype):
-        return VArray(mut, xtype)
+    def type_array(self, xtype):
+        return VArray(xtype)
 
-    def type_map(self, mut, keyt, valuet):
-        return VMap(mut, keyt, valuet)
+    def type_map(self, keyt, valuet):
+        return VMap(keyt, valuet)
 
-    def type_ref(self, mut, xtype):
-        return VRef(mut, xtype)
+    def type_ref(self, xtype):
+        return VRef(xtype)
 
-    def type_opt(self, mut, xtype):
-        return VOptional(mut, xtype)
+    def type_opt(self, xtype):
+        return VOptional(xtype)
 
     ############################################################
     # Helpers

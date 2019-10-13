@@ -10,11 +10,25 @@ class Expr:
 
     def resolve_type(self, module, scope):
         """
+        Will attempt to resovle the return
+        type of the expression
+
+        can be a list for multiple return
+
         :type module: VModule
         :type scope: StmtCompound
-        :rtype: VType
+        :rtype: VType or List[VType]
         """
         raise NotImplementedError
+
+    def is_mut(self, module, scope):
+        """
+        Will check if the expression returns a mutable result
+        :type module: VModule
+        :type scope: StmtCompound
+        :rtype: bool
+        """
+        return NotImplemented
 
 
 class Stmt:
@@ -52,13 +66,14 @@ class StmtCompound(Stmt):
             return self.variables[name]
         return self.parent.get_identifier(name)
 
-    def add_variable(self, name, xtype):
+    def add_variable(self, name, mut, xtype):
         """
         :type name: str
+        :type mut: bool
         :type xtype: VType
         """
         assert name not in self.variables, f"Already got variable with name `{name}`"
-        self.variables[name] = VVariable(name, xtype)
+        self.variables[name] = VVariable(mut, name, xtype)
 
     def get_function(self):
         """
@@ -80,10 +95,12 @@ class StmtCompound(Stmt):
 class VModule:
 
     def __init__(self):
+        from vworkspace import VWorkspace
         self.name = 'main'
         self.types = []  # type: List[VType]
         self.identifiers = {}  # type: Dict[str, VFunction or VType]
         self.type_checked = False
+        self.workspace = None  # type: VWorkspace
 
     def set_module_name(self, name):
         self.name = name
@@ -133,18 +150,14 @@ class VModule:
         :rtype: VType
         """
         # get the type
-        t = self.get_identifier(unresolved.type_name)
+        if unresolved.module is None:
+            unresolved.module = self
+        t = unresolved.module.get_identifier(unresolved.type_name)
         assert isinstance(t, VType), f"`{unresolved.type_name}` is not a valid type"
 
         # If the type we got was not resolved yet, resolve it
         if isinstance(t, VUnresolvedType):
             t = self.resolve_unresolved_type(t)
-
-        # Evolve mut
-        if unresolved.mut != t.mut:
-            t = t.copy()
-            t.mut = unresolved.mut
-            t = self.add_type(t)
 
         # return the type
         return t
@@ -157,25 +170,29 @@ class VModule:
 
         # Handle types with one subtype
         elif isinstance(xtype, VRef) or isinstance(xtype, VArray) or isinstance(xtype, VOptional):
+            xtype.module = self.workspace.load_module('builtin')
             xtype.xtype = self.resolve_type(xtype.xtype)
 
         # Handle type with two subtypes
         elif isinstance(xtype, VMap):
+            xtype.module = self.workspace.load_module('builtin')
             xtype.key_type = self.resolve_type(xtype.key_type)
             xtype.value_type = self.resolve_type(xtype.value_type)
 
         # Function type resolving
         elif isinstance(xtype, VFunctionType):
+            if xtype.module is None:
+                xtype.module = self
 
             # Resolve the params
             for i in range(len(xtype.param_types)):
                 param = xtype.param_types[i]
-                xtype.param_types[i] = self.resolve_type(param)
+                xtype.param_types[i] = xtype.module.resolve_type(param[0]), param[1]
 
             # resolve the arguments
             for i in range(len(xtype.return_types)):
                 return_type = xtype.return_types[i]
-                xtype.return_types[i] = self.resolve_type(return_type)
+                xtype.return_types[i] = xtype.module.resolve_type(return_type[0]), return_type[1]
 
         # Handle builtin types
         elif isinstance(xtype, VBool) or isinstance(xtype, VIntegerType):
@@ -183,17 +200,21 @@ class VModule:
 
         # Handle structs
         elif isinstance(xtype, VStructType):
+            if xtype.module is None:
+                xtype.module = self
+
             if xtype.embedded is not None:
-                xtype.embedded = self.resolve_type(xtype.embedded)
+                xtype.embedded = xtype.module.resolve_type(xtype.embedded)
 
             for i in range(len(xtype.fields)):
                 field = xtype.fields[i]
-                xtype.fields[i] = (field[0], self.resolve_type(field[1]))
+                field.xtype = xtype.module.resolve_type(field.xtype)
 
+            # TODO: Check embedded field
             # Make sure all the types seem good
-            if xtype.embedded is not None:
-                for field in xtype.fields:
-                    assert xtype.embedded.get_field(field[0]) is None, f"Field `{field[0]}` in type `{xtype}` shadows field in embedded type `{xtype.embedded}`"
+            # if xtype.embedded is not None:
+            #     for field in xtype.fields:
+            #         assert xtype.embedded.get_field(field[0]) is None, f"Field `{field[0]}` in type `{xtype}` shadows field in embedded type `{xtype.embedded}`"
 
         # Unknown types will get an assert so we don't forget stuff
         else:
@@ -213,7 +234,7 @@ class VModule:
             if isinstance(ident, VFunction):
                 ident.type = self.resolve_type(ident.type)
                 for i in range(len(ident.param_names)):
-                    ident.root_scope.add_variable(ident.param_names[i], ident.type.param_types[i])
+                    ident.root_scope.add_variable(ident.param_names[i], ident.type.param_types[i][1], ident.type.param_types[i][0])
 
             # For builtin functions only need to resovle the signature
             elif isinstance(ident, VBuiltinFunction):
@@ -259,11 +280,13 @@ class VModule:
 
 class VVariable:
 
-    def __init__(self, name, type):
+    def __init__(self, mut, name, type):
         """
-        :type name: str`
+        :type mut: bool
+        :type name: str
         :type type: VType
         """
+        self.mut = mut
         self.name = name
         self.type = type
 
@@ -276,10 +299,10 @@ class VBuiltinFunction:
     def __init__(self, name, params, return_types):
         self.name = name
 
-        self.type = VFunctionType(False)
+        self.type = VFunctionType()
         for p in params:
-            self.type.add_param(VUnresolvedType(False, p))
-        self.type.return_types = [VUnresolvedType(False, p) for p in return_types]
+            self.type.add_param(False, VUnresolvedType(None, p))
+        self.type.return_types = [VUnresolvedType(None, p) for p in return_types]
 
 
 class VFunction:
@@ -287,32 +310,35 @@ class VFunction:
     def __init__(self):
         self.name = ''
         self.pub = False
-        self.type = VFunctionType(False)
-        self.module = None  # type: VModule or None
+        self.type = VFunctionType()
         self.param_names = []  # type: List[str]
         self.root_scope = StmtCompound(self)
         self.scope_stack = [self.root_scope]  # type: List[StmtCompound]
+
+    def get_module(self):
+        return self.type.module
 
     def get_identifier(self, name):
         if name in self.param_names:
             index = self.param_names.index(name)
             return VVariable(self.param_names[index], self.type.param_types[index])
-        return self.module.get_identifier(name)
+        return self.get_module().get_identifier(name)
 
-    def add_param(self, name, xtype):
+    def add_param(self, name, mut, xtype):
         """
         :type name: str
+        :type mut: bool
         :type xtype: VType
         """
         assert name not in self.param_names
         self.param_names.append(name)
-        self.type.add_param(xtype)
+        self.type.add_param(mut, xtype)
 
-    def add_return_type(self, type):
+    def add_return_type(self, mut, type):
         """
         :type type: VType
         """
-        self.type.return_types.append(type)
+        self.type.add_return_type(mut, type)
 
     def __str__(self):
         params = ', '.join([f'{self.param_names[i]} {self.type.param_types[i]}' for i in range(len(self.param_names))])
@@ -320,3 +346,20 @@ class VFunction:
         if len(self.type.return_types) > 1:
             return_types = f'({return_types})'
         return f'fn {self.name} ({params}) {return_types}'
+
+
+class VStruct:
+
+    def __init__(self, name, struct_type):
+        """
+        :type name: str
+        :type struct_type: VStructType
+        """
+        self.name = name
+        self.type = struct_type
+
+    def get_module(self):
+        return self.type.module
+
+    def get_field(self, name):
+        return self.type.get_field(name)
