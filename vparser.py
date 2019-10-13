@@ -100,14 +100,12 @@ class VAstTransformer(Transformer):
     def fn_return(self, *return_types):
         rets = []
         for i in range(len(return_types) // 2):
-            rets.append((return_types[i], return_types[i + 1]))
+            rets.append((return_types[i * 2], return_types[i * 2 + 1]))
         return rets
 
     # Struct declaration
 
     def struct_decl(self, name, embedded, fields):
-
-        print(fields)
 
         # Process the fields and their access mods
         f = []
@@ -210,7 +208,7 @@ class VAstTransformer(Transformer):
     def expr_fn_call(self, fn_expr, *params):
         parms = []
         for i in range(len(params) // 2):
-            parms.append((params[i], params[i + 1]))
+            parms.append((params[i * 2], params[i * 2 + 1]))
         return ExprFunctionCall(fn_expr, parms)
 
     def expr_member_access(self, expr, member_name):
@@ -239,6 +237,12 @@ class VAstTransformer(Transformer):
         # TODO: Need to extend this to support more than module local structs,
         # TODO: But also external module structs
         return ExprStructLiteral(ref, VUnresolvedType(None, str(name)), list(exprs))
+
+    def struct_literal_named(self, ref, name, *elements):
+        return ExprStructLiteralNamed(ref, VUnresolvedType(None, str(name)), list(elements))
+
+    def struct_literal_named_item(self, name, expr):
+        return str(name), expr
 
     def array_literal(self, *exprs):
         return ExprArrayLiteral(list(exprs))

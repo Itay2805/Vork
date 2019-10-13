@@ -87,43 +87,43 @@ stmt_list: stmt*
 // the full expression precendence
 //************************************
 
-_expr: expr_postfix
+_expr: expr_logical_or
 
-?expr_postfix: expr_unary _op_postfix -> expr_postfix
-             | expr_unary
-
-?expr_unary: _op_unary expr_multiplicative -> expr_unary
-           | expr_multiplicative
-
-?expr_multiplicative: expr_additive _op_multiplicative expr_additive -> expr_binary
-                    | expr_additive
-
-?expr_additive: expr_shift _op_additive expr_shift -> expr_binary
-              | expr_shift
-
-?expr_shift: expr_relational _op_shift expr_relational -> expr_binary
-           | expr_relational
-
-?expr_relational: expr_equality _op_relational expr_equality -> expr_binary
-                | expr_equality
-
-?expr_equality: expr_bitwise_and _op_equality expr_bitwise_and -> expr_binary
-              | expr_bitwise_and
-
-?expr_bitwise_and: expr_bitwise_xor _op_bitwise_and expr_bitwise_xor -> expr_binary
-                 | expr_bitwise_xor
-
-?expr_bitwise_xor: expr_bitwise_or _op_bitwise_xor expr_bitwise_or -> expr_binary
-                 | expr_bitwise_or
-
-?expr_bitwise_or:  expr_logical_and _op_bitwise_or expr_logical_and -> expr_binary
+?expr_logical_or: expr_logical_and _op_logical_or expr_logical_and -> expr_binary
                 | expr_logical_and
 
-?expr_logical_and: expr_logical_or _op_logical_and expr_logical_or -> expr_binary
-                 | expr_logical_or
+?expr_logical_and: expr_bitwise_or _op_logical_and expr_bitwise_or -> expr_binary
+                 | expr_bitwise_or
 
-?expr_logical_or: expr_others _op_logical_or expr_others -> expr_binary
-                | expr_others
+?expr_bitwise_or: expr_bitwise_xor _op_bitwise_or expr_bitwise_xor -> expr_binary
+                | expr_bitwise_xor
+
+?expr_bitwise_xor: expr_bitwise_and _op_bitwise_xor expr_bitwise_and -> expr_binary
+                 | expr_bitwise_and
+
+?expr_bitwise_and: expr_equality _op_bitwise_and expr_equality -> expr_binary
+                 | expr_equality
+
+?expr_equality: expr_relational _op_equality expr_relational -> expr_binary
+              | expr_relational
+
+?expr_relational: expr_shift _op_relational expr_shift -> expr_binary
+                | expr_shift
+
+?expr_shift: expr_additive _op_shift expr_additive -> expr_binary
+           | expr_additive
+
+?expr_additive: expr_multiplicative _op_additive expr_multiplicative -> expr_binary
+              | expr_multiplicative
+
+?expr_multiplicative: expr_unary _op_multiplicative expr_unary -> expr_binary
+                    | expr_unary
+
+?expr_unary: _op_unary expr_postfix -> expr_unary
+           | expr_postfix
+
+?expr_postfix: expr_others _op_postfix -> expr_postfix
+             | expr_others
 
 // all the operators
 !_op_postfix: ("++"|"--")

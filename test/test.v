@@ -48,6 +48,6 @@ fn main() {
     assert bitget(instance, 47) == 1
     bitclear(mut instance, 47)
     assert bitget(instance, 47) == 0
-    bittoggle(mut instance, 46)
+    bittoggle(mut instance, 47)
     assert bitget(instance, 47) == 1
 }

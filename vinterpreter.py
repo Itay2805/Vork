@@ -65,22 +65,29 @@ class VInterpreter:
 
     def _init_struct(self, expr, strct=None):
         """
-        :type expr: ExprStructLiteral
+        :type expr: ExprStructLiteral or ExprStructLiteralNamed
         """
-        fields = expr.fields
-
         if strct is None:
             strct = {}
 
         # TODO: Embedded type
 
         # Do none embedded types
-        for field in expr.xtype.fields:
-            if len(fields) > 0:
+        if isinstance(expr, ExprStructLiteral):
+            fields = expr.fields
+
+            for field in expr.xtype.fields:
                 strct[field[0]] = self._eval_expression(fields[0])
                 fields = fields[1:]
-            else:
-                strct[field[0]] = self._eval_expression(default_value_for_type(field[1]))
+
+        elif isinstance(expr, ExprStructLiteralNamed):
+            fields = expr.fields
+
+            for field in fields:
+                strct[field[0]] = self._eval_expression(field[1])
+
+        else:
+            assert False
 
         return strct
 
@@ -100,7 +107,15 @@ class VInterpreter:
             return self.call_stack[-1].get_variable(expr.name)
 
         elif isinstance(expr, ExprBinary):
-            return eval(f'{self._eval_expression(expr.expr0)} {expr.op} {self._eval_expression(expr.expr1)}')
+            a = self._eval_expression(expr.expr0)
+            res = eval(f'{a} {expr.op} {self._eval_expression(expr.expr1)}')
+
+            if expr.op not in ['>', '<', '!=', '==', '<=', '>=']:
+                if isinstance(a, int):
+                    return int(res)
+                elif isinstance(a, float):
+                    return float(res)
+            return res
 
         elif isinstance(expr, ExprUnary):
             return eval(f'{expr.op}{self._eval_expression(expr.expr)}')
@@ -115,7 +130,7 @@ class VInterpreter:
             else:
                 return ret
 
-        elif isinstance(expr, ExprStructLiteral):
+        elif isinstance(expr, ExprStructLiteral) or isinstance(expr, ExprStructLiteralNamed):
             return self._init_struct(expr)
 
         elif isinstance(expr, ExprMemberAccess):
@@ -124,7 +139,7 @@ class VInterpreter:
                 if expr.member_name == 'len':
                     return len(t)
             else:
-                return [expr.member_name]
+                return t[expr.member_name]
 
         elif isinstance(expr, ExprArrayLiteral):
             return [self._eval_expression(expr) for expr in expr.exprs]
@@ -133,7 +148,9 @@ class VInterpreter:
             return [self._eval_expression(default_value_for_type(expr.xtype))] * self._eval_expression(expr.length)
 
         elif isinstance(expr, ExprIndex):
-            return self._eval_expression(expr.src)[self._eval_expression(expr.at)]
+            index = self._eval_expression(expr.at)
+            src = self._eval_expression(expr.src)
+            return src[index]
 
         else:
             assert False, f"Unknown expression {expr}"
@@ -143,7 +160,8 @@ class VInterpreter:
         :type stmt: Stmt
         """
         if isinstance(stmt, StmtAssert):
-            assert self._eval_expression(stmt.expr), f'V assert failed!'
+            val = self._eval_expression(stmt.expr)
+            assert val, f'V assert failed!'
 
         elif isinstance(stmt, StmtCompound):
             self.call_stack[-1].push_scope()

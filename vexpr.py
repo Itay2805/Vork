@@ -55,6 +55,52 @@ class ExprBoolLiteral(Expr):
         return str(self.b).lower()
 
 
+# TODO: We can probably just use the other struct literal
+class ExprStructLiteralNamed(Expr):
+
+    def __init__(self, ref, xtype, fields):
+        """
+        :type ref: bool
+        :type xtype: VStructType
+        :type fields: List[Tuple[str, Expr]]
+        """
+        self.ref = ref
+        self.xtype = xtype
+        self.fields = fields
+
+    def resolve_type(self, module, scope):
+        # Don't forget to resolve it
+        self.xtype = module.resolve_type(self.xtype)  # type: VStructType
+
+        fields = self.fields
+
+        assert len(self.fields) == len(self.xtype.fields), f"expected {len(self.xtype.fields)} fields in struct initialization, got {len(self.fields)}"
+
+        # TODO: Embedded type
+
+        for i in range(len(self.fields)):
+            field_name = fields[i][0]
+            expr = fields[i][1]
+            struct_field = self.xtype.get_field(field_name)
+
+            # Check the initialization type
+            t = expr.resolve_type(module, scope)
+            assert t == struct_field.xtype, f"field `{struct_field.name}` requires `{struct_field.xtype}`, got `{t}` (at `{self}`)"
+
+            # If this is a private field only the same module can initialize it
+            if struct_field.access_mod == ACCESS_PRIVATE or struct_field.access_mod == ACCESS_PRIVATE_MUT:
+                assert scope.get_function().get_module() == self.xtype.module, f"can not initialize field `{struct_field.name}` (set as private) (at `{self}`)"
+
+        # return the struct type
+        if self.ref:
+            return module.add_type(VRef(self.xtype))
+
+        return module.add_type(self.xtype)
+
+    def is_mut(self, module, scope):
+        return True
+
+
 class ExprStructLiteral(Expr):
 
     def __init__(self, ref, xtype, fields):
@@ -69,37 +115,27 @@ class ExprStructLiteral(Expr):
 
     def resolve_type(self, module, scope):
         # Don't forget to resolve it
-        self.xtype = module.resolve_type(self.xtype)
+        self.xtype = module.resolve_type(self.xtype)  # type: VStructType
 
-        fields = self.fields
+        assert len(self.fields) == len(self.xtype.fields), f"expected {len(self.xtype.fields)} fields in struct initialization, got {len(self.fields)}"
 
-        # Check if there is an embedded type
-        if self.xtype.embedded is not None and len(fields) > 0:
-            if fields[0] is not None:
-                t = fields[0].resolve_type(module, scope)
-                assert check_return_type(self.xtype.embedded, t), f"Can not assign type `{t}` to embedded field (expected `{self.xtype.embedded}`)"
-                fields = fields[1:]
+        # TODO: Embedded type
 
-        # check the rest of the types
-        if len(fields) > 0:
-            for field in self.xtype.fields:
-                # None fields are default typed
-                if fields[0] is not None:
-                    t = fields[0].resolve_type(module, scope)
-                    assert check_return_type(field[1], t), f"Can not assign type `{t}` to field `{self.xtype.name}.{field[0]}` (expected `{field[1]}`)"
-                    fields = fields[1:]
+        for i in range(len(self.fields)):
+            struct_field = self.xtype.fields[i]
+            expr = self.fields[i]
 
-                # The rest will be default typed
-                if len(fields) == 0:
-                    break
+            # Check the initialization type
+            t = expr.resolve_type(module, scope)
+            assert t == struct_field.xtype, f"field `{struct_field.name}` requires `{struct_field.xtype}`, got `{t}` (at `{self}`)"
+
+            # If this is a private field only the same module can initialize it
+            if struct_field.access_mod == ACCESS_PRIVATE or struct_field.access_mod == ACCESS_PRIVATE_MUT:
+                assert scope.get_function().get_module() == self.xtype.module, f"can not initialize field `{struct_field.name}` (set as private) (at `{self}`)"
 
         # return the struct type
         if self.ref:
-            # Remove the mutability of the type and pass it to the ref
-            self.xtype = self.xtype.copy()
-            self.xtype.mut = False
-            self.xtype = module.add_type(self.xtype)
-            return module.add_type(VRef(self.xtype.mut, self.xtype))
+            return module.add_type(VRef(self.xtype))
 
         return module.add_type(self.xtype)
 
@@ -292,7 +328,7 @@ class ExprFunctionCall(Expr):
             return mut
 
     def __str__(self):
-        args = ', '.join(['mut 'if arg[0] else '' + str(arg[1]) for arg in self.arguments])
+        args = ', '.join(['mut ' if arg[0] else '' + str(arg[1]) for arg in self.arguments])
         return f'{self.func_expr}({args})'
 
 
