@@ -42,7 +42,6 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
 ///////////////////////////////////////////////////
 
 // TODO: Add back C based for loops
-// TODO: | "for" (maybe_var_decl|stmt_assignment) ";" _expr ";" (_expr | stmt_assignment) "{" stmt_list "}" -> stmt_for
 
 ?stmt: _expr _NEWLINE -> stmt_expr
      | "return" [_expr ("," _expr)*] _NEWLINE -> stmt_return
@@ -51,6 +50,7 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
      | "for" NAME "in" _expr "{" stmt_list "}" -> stmt_foreach
      | "for" NAME "," NAME "in" _expr "{" stmt_list "}" -> stmt_foreach_indexed
      | "for" "{" stmt_list "}"-> stmt_forever
+     | "for" (maybe_var_decl|stmt_assignment) ";" _expr ";" (_expr | stmt_assignment) "{" stmt_list "}" -> stmt_for
      | "break" -> stmt_break
      | "continue" -> stmt_continue
      | stmt_var_decl _NEWLINE
@@ -58,7 +58,7 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
      | stmt_if
      | _NEWLINE
 
-stmt_var_decl: var_decl_names ":=" _expr
+stmt_var_decl: var_decl_vars ":=" _expr
 !maybe_var_decl: stmt_var_decl?
 
 ?stmt_assignment: _expr "=" _expr -> stmt_assign
@@ -68,7 +68,7 @@ stmt_if: "if" _expr "{" stmt_list "}" (stmt_else | _NEWLINE)
           | "else" stmt_if -> stmt_else_if
 
 var_decl: maybe_mut NAME
-var_decl_names: var_decl ("," var_decl)*
+var_decl_vars: var_decl ("," var_decl)*
 
 
 !_op_assignment: ("+="|"-="|"*="|"/="|"%="|"<<="|">>="|"|="|"&="|"^=")

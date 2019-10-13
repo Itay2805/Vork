@@ -256,7 +256,8 @@ class ExprFunctionCall(Expr):
                 to_type = func.param_types[i][0]
                 assert from_type == to_type, f'function agument at `{i}` expected `{to_type}`, got `{from_type}`'
                 assert to_mut == from_mut, f'function agument at `{i}` expected mut to be `{to_mut}`, got `{from_mut}`'
-                assert from_mut == from_expr.is_mut(module, scope), f'tried to convert mut`{from_mut}`, got `{from_expr.is_mut(module, scope)}`'
+                if from_mut:
+                    assert from_mut == from_expr.is_mut(module, scope), f'tried to convert mut `{from_mut}`, got `{from_expr.is_mut(module, scope)}`'
 
             # If returns one type, return 1 type
             if len(func.return_types) == 1:

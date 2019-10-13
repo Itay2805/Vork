@@ -199,11 +199,7 @@ class VInterpreter:
 
         elif isinstance(stmt, StmtAssign):
             if isinstance(stmt.dest, ExprIdentifierLiteral):
-                t = stmt.expr.resolve_type(module, scope)
-                num = self._eval_expression(stmt.expr)
-                if isinstance(t, VIntegerType):
-                    assert_integer_cast(t, num)
-                self.call_stack[-1].set_variable(stmt.dest.name, num)
+                self.call_stack[-1].set_variable(stmt.dest.name, self._eval_expression(stmt.expr))
 
             elif isinstance(stmt.dest, ExprMemberAccess):
                 self._eval_expression(stmt.dest.expr)[stmt.dest.member_name] = self._eval_expression(stmt.expr)

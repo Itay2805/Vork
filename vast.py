@@ -342,7 +342,7 @@ class VFunction:
 
     def __str__(self):
         params = ', '.join([f'{self.param_names[i]} {self.type.param_types[i]}' for i in range(len(self.param_names))])
-        return_types = ', '.join([f'{arg}' for arg in self.type.return_types])
+        return_types = ', '.join(["mut " if arg[1] else "" + str(arg[0]) for arg in self.type.return_types])
         if len(self.type.return_types) > 1:
             return_types = f'({return_types})'
         return f'fn {self.name} ({params}) {return_types}'

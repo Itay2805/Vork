@@ -145,10 +145,10 @@ class VAstTransformer(Transformer):
         # TODO: Maybe convert into a builtin function call
         return StmtAssert(expr)
 
-    def stmt_var_decl(self, names, expr):
-        return StmtDeclare(names, expr)
+    def stmt_var_decl(self, vars, expr):
+        return StmtDeclare(vars, expr)
 
-    def var_decl_names(self, *args):
+    def var_decl_vars(self, *args):
         return list(args)
 
     def var_decl(self, mut, name):
@@ -177,7 +177,12 @@ class VAstTransformer(Transformer):
         return StmtForeach(str(index), str(item), expr, stmts)
 
     def stmt_for(self, decl, condition, expr, stmt_list):
-        # Return that scope
+
+        # Make the declared types be mut by default
+        if isinstance(decl, StmtDeclare):
+            for i in range(len(decl.vars)):
+                decl.vars[i] = (True, decl.vars[i][1])
+
         return StmtFor(decl, condition, expr, stmt_list)
 
     def stmt_break(self):
