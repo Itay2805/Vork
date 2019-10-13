@@ -33,8 +33,12 @@ fn_return: [maybe_mut type_decl | "(" maybe_mut type_decl ("," maybe_mut type_de
 // TODO: support for changing mutability of fields
 
 struct_decl: "struct" NAME "{" _NEWLINE? embedded_struct_field struct_fields "}"
-struct_fields: struct_field*
+struct_fields: (struct_field | struct_access_mod ":" _NEWLINE)*
 struct_field: NAME type_decl _NEWLINE
+!struct_access_mod: "mut"
+                  | "pub"
+                  | "pub" "mut"
+                  | "pub" "mut" "mut"
 embedded_struct_field: (maybe_mut NAME _NEWLINE)?
 
 ///////////////////////////////////////////////////
@@ -43,8 +47,7 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
 
 // TODO: Add back C based for loops
 
-?stmt: _expr _NEWLINE -> stmt_expr
-     | "return" [_expr ("," _expr)*] _NEWLINE -> stmt_return
+?stmt: "return" [_expr ("," _expr)*] _NEWLINE -> stmt_return
      | "assert" _expr _NEWLINE -> stmt_assert
      | _expr _op_assignment _expr _NEWLINE -> stmt_op_assign
      | "for" NAME "in" _expr "{" stmt_list "}" -> stmt_foreach
@@ -56,6 +59,7 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
      | stmt_var_decl _NEWLINE
      | stmt_assignment _NEWLINE
      | stmt_if
+     | _expr _NEWLINE -> stmt_expr
      | _NEWLINE
 
 stmt_var_decl: var_decl_vars ":=" _expr
@@ -123,7 +127,7 @@ _expr: expr_postfix
 
 // all the operators
 !_op_postfix: ("++"|"--")
-!_op_unary: ("-"|"!"|"++"|"--")
+!_op_unary: ("-"|"!"|"++"|"--"|"~")
 !_op_multiplicative: ("*"|"/"|"%")
 !_op_additive: ("+"|"-")
 !_op_shift: ("<<"|">>")
@@ -158,11 +162,9 @@ _expr: expr_postfix
 
 // Struct literal types
 // MyStruct{1,2,3}
-struct_literal: maybe_ref NAME "{" (_expr ("," _expr)*)? "}"
 // MyStruct{a: 1, b: 2, c: 3}
-struct_literal_named: maybe_ref NAME "{" struct_literal_named_item ("," struct_literal_named_item)* "}"
-// MyStruct{ old | b: 3, c: 4 }
-// struct_literal_modify: maybe_ref NAME "{" _expr "|" struct_literal_named_item ("," struct_literal_named_item)* "}"
+struct_literal: maybe_ref NAME "{" _NEWLINE? (_expr _NEWLINE? ("," _NEWLINE? _expr _NEWLINE? )*)? _NEWLINE? "}"
+struct_literal_named: maybe_ref NAME "{" _NEWLINE? struct_literal_named_item (_NEWLINE struct_literal_named_item)* _NEWLINE? "}"
 struct_literal_named_item: NAME ":" _expr
 
 // array literal

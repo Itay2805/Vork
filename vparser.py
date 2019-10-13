@@ -42,7 +42,7 @@ class VAstTransformer(Transformer):
 
             elif isinstance(arg, VStruct):
                 arg.type.module = module
-                arg.type = module.add_type(arg.type)
+                arg.type = module.add_type(arg.type, arg.name)
 
             # Unknown module item
             else:
@@ -107,6 +107,8 @@ class VAstTransformer(Transformer):
 
     def struct_decl(self, name, embedded, fields):
 
+        print(fields)
+
         # Process the fields and their access mods
         f = []
         ac = ACCESS_PRIVATE
@@ -123,7 +125,10 @@ class VAstTransformer(Transformer):
         return list(fields)
 
     def struct_field(self, name, xtype):
-        return str(name), xtype
+        return VStructField(str(name), ACCESS_PRIVATE, xtype)
+
+    def struct_access_mod(self, *mods):
+        return ' '.join([str(m) for m in mods])
 
     def embedded_struct_field(self, *xtype):
         # TODO: return VUnresolvedType(xtype[0], xtype[1]) if len(xtype) > 0 else None
@@ -194,6 +199,10 @@ class VAstTransformer(Transformer):
     ############################################################
     # Expressions
     ############################################################
+
+    def expr_unary(self, op, expr):
+        # TODO: Special handling for ++/--
+        return ExprUnary(op, expr)
 
     def expr_binary(self, expr0, op, expr1):
         return ExprBinary(op, expr0, expr1)

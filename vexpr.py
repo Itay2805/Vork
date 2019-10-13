@@ -197,7 +197,7 @@ class ExprBinary(Expr):
 
         # The types need to be the same
         # TODO: have this add casts or something
-        assert t0 == t1, f'Binary operators must have the same type on both sides (got `{t0}` and `{t1}`)'
+        assert t0 == t1, f'Binary operators must have the same type on both sides (got `{t0}` and `{t1}`) (at `{self}`)'
 
         # Make sure we can use the operator on the given type
         good = False
@@ -321,7 +321,7 @@ class ExprMemberAccess(Expr):
 
                 # Check if visible
                 if ac == ACCESS_PRIVATE or ac == ACCESS_PRIVATE_MUT:
-                    assert t.module == scope.get_function().module, f"field `{t.name}.{self.member_name}` is not visible"
+                    assert t.module == scope.get_function().get_module(), f"field `{t.name}.{self.member_name}` is not visible"
 
                 return newt.xtype
 
@@ -453,3 +453,25 @@ class ExprArrayLiteralUninit(Expr):
 
     def __str__(self):
         return f'[{self.length}]{self.xtype}'
+
+
+class ExprUnary(Expr):
+
+    def __init__(self, op, expr):
+        """
+        :type op: str
+        :type expr: Expr
+        """
+        self.op = op
+        self.expr = expr
+
+    def resolve_type(self, module, scope):
+        t = self.expr.resolve_type(module, scope)
+        assert isinstance(t, VIntegerType), f"unary op {self.op} only supports integer types (got {t}) (at `{self}`)"
+        return t
+
+    def is_mut(self, module, scope):
+        return True
+
+    def __str__(self):
+        return f'{self.op}{self.expr}'

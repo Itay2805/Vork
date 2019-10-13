@@ -102,6 +102,9 @@ class VInterpreter:
         elif isinstance(expr, ExprBinary):
             return eval(f'{self._eval_expression(expr.expr0)} {expr.op} {self._eval_expression(expr.expr1)}')
 
+        elif isinstance(expr, ExprUnary):
+            return eval(f'{expr.op}{self._eval_expression(expr.expr)}')
+
         elif isinstance(expr, ExprFunctionCall):
             ret = self._eval_function(self._eval_expression(expr.func_expr), [self._eval_expression(e[1]) for e in expr.arguments])
             if isinstance(ret, tuple):

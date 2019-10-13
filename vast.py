@@ -153,6 +153,7 @@ class VModule:
         if unresolved.module is None:
             unresolved.module = self
         t = unresolved.module.get_identifier(unresolved.type_name)
+
         assert isinstance(t, VType), f"`{unresolved.type_name}` is not a valid type"
 
         # If the type we got was not resolved yet, resolve it
