@@ -69,16 +69,17 @@ class StmtCompound(Stmt):
 
     def type_check(self, module, scope):
         from vexpr import TypeCheckError
-        got_error = False
+        is_good = True
         for c in self.code:
             try:
                 ret = c.type_check(module, self)
                 if ret is not None and ret:
-                    got_error = True
+                    is_good = False
             except TypeCheckError as e:
-                got_error = True
+                is_good = False
                 e.report('error', e.msg, e.func)
-        return got_error
+
+        return is_good
 
     def get_identifier(self, name):
         if name in self.variables:
@@ -253,7 +254,7 @@ class VModule:
         from vstmt import StmtReturn
 
         if self.type_checked:
-            return
+            return True
         self.type_checked = True
 
         # We start by doing type resolving on all the module level stuff
@@ -279,7 +280,7 @@ class VModule:
             elif isinstance(ident, VModule):
                 ident.type_checking()
 
-        got_errors = False
+        is_good = True
 
         # Now the module level should be fine, we can do type checking on the
         # statement level
@@ -288,7 +289,7 @@ class VModule:
             if isinstance(ident, VFunction):
                 # Do normal type checking
                 if not ident.root_scope.type_check(self, ident.root_scope):
-                    got_errors = True
+                    is_good = False
                     continue
 
                 # TODO: A bit more advanced return checks
@@ -304,9 +305,9 @@ class VModule:
                         ident.root_scope.reporter.reporter(ident.root_scope.line_end, 1, ident.root_scope.line_end + 1)('error', 'control reaches end of non-void function', func=ident.name)
                 elif len(ident.root_scope.code) == 0 or not isinstance(ident.root_scope.code[-1], StmtReturn):
                     # Insert a return because this function has no return arguments and last item is not a return
-                    ident.root_scope.code.append(StmtReturn([]))
+                    ident.root_scope.code.append(StmtReturn([], None))
 
-        return got_errors
+        return is_good
 
     def add_builtin_function(self, func):
         """
