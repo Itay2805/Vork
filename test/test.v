@@ -24,10 +24,21 @@ fn to_mut(a int) int {
 }
 
 fn main() {
-    for i := 0; i < 10; i += 1 {
-        if i == 5 {
-            break
-        }
-        print(i)
-    }
+	mut randoms1 := gen_randoms(42)
+	mut randoms2 := gen_randoms(42)
+	assert randoms1.len == randoms2.len
+
+	mut len := to_mut(randoms1.len)
+	for i in range(len) {
+		assert randoms1[i] == randoms2[i]
+	}
+
+	randoms1 = gen_randoms(256)
+	randoms2 = gen_randoms(256)
+	assert randoms1.len == randoms2.len
+
+	len = to_mut(randoms1.len)
+	for i in range(len) {
+		assert randoms1[i] == randoms2[i]
+	}
 }

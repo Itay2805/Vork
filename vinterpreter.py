@@ -165,8 +165,11 @@ class VInterpreter:
         :type stmt: Stmt
         """
         if isinstance(stmt, StmtAssert):
+            import sys
             val = self._eval_expression(stmt.expr)
-            assert val, f'V assert failed!'
+            if not val:
+                stmt.report('error', 'assertion failed!')
+                sys.exit(-1)
 
         elif isinstance(stmt, StmtCompound):
             self.call_stack[-1].push_scope()
