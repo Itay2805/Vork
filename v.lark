@@ -16,22 +16,20 @@ start: _module_item*
 _module_item: fn_decl
             | struct_decl
             | module_decl
+            | import_decl
             | _NEWLINE
 
 // Misc
-
 module_decl: "module" NAME ("." NAME)* _NEWLINE
+import_decl: "import" NAME ("." NAME)* _NEWLINE
 
 // Function declaration
-
 fn_decl: maybe_pub "fn" NAME "(" fn_params ")" fn_return "{" stmt_list "}" _NEWLINE
 fn_params: [fn_param ("," fn_param)*]
 fn_param: NAME maybe_mut type_decl | NAME
 fn_return: [maybe_mut type_decl | "(" maybe_mut type_decl ("," maybe_mut type_decl)+ ")"]
 
 // Struct declaration
-// TODO: support for changing mutability of fields
-
 struct_decl: "struct" NAME "{" _NEWLINE? embedded_struct_field struct_fields "}"
 struct_fields: (struct_field | struct_access_mod ":" _NEWLINE)*
 struct_field: NAME type_decl _NEWLINE
@@ -44,8 +42,6 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
 ///////////////////////////////////////////////////
 // Statements
 ///////////////////////////////////////////////////
-
-// TODO: Add back C based for loops
 
 ?stmt: "return" [_expr ("," _expr)*] _NEWLINE -> stmt_return
      | "assert" _expr _NEWLINE -> stmt_assert
@@ -163,8 +159,8 @@ _expr: expr_logical_or
 // Struct literal types
 // MyStruct{1,2,3}
 // MyStruct{a: 1, b: 2, c: 3}
-struct_literal: maybe_ref NAME "{" _NEWLINE? (_expr _NEWLINE? ("," _NEWLINE? _expr _NEWLINE? )*)? _NEWLINE? "}"
-struct_literal_named: maybe_ref NAME "{" _NEWLINE? struct_literal_named_item (_NEWLINE struct_literal_named_item)* _NEWLINE? "}"
+struct_literal: maybe_ref module_path_ident "{" _NEWLINE? (_expr _NEWLINE? ("," _NEWLINE? _expr _NEWLINE? )*)? _NEWLINE? "}"
+struct_literal_named: maybe_ref module_path_ident "{" _NEWLINE? struct_literal_named_item (_NEWLINE struct_literal_named_item)* _NEWLINE? "}"
 struct_literal_named_item: NAME ":" _expr
 
 // array literal
@@ -174,6 +170,7 @@ array_literal_uninit: "[" _expr "]" type_decl
 number: DEC_NUMBER
 string: STRING
 ident: NAME
+module_path_ident: NAME ("." NAME)*
 
 ///////////////////////////////////////////////////
 // type declarations

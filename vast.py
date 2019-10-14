@@ -226,6 +226,10 @@ class VModule:
     def type_checking(self):
         from vstmt import StmtReturn
 
+        if self.type_checked:
+            return
+        self.type_checked = True
+
         # We start by doing type resolving on all the module level stuff
         for name in self.identifiers:
             ident = self.identifiers[name]

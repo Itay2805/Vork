@@ -138,6 +138,8 @@ class VInterpreter:
             if isinstance(t, list):
                 if expr.member_name == 'len':
                     return len(t)
+            elif isinstance(t, VModule):
+                return t.get_identifier(expr.member_name)
             else:
                 return t[expr.member_name]
 
@@ -347,7 +349,7 @@ class VInterpreter:
 
         # User defined function
         if isinstance(func, VFunction):
-            self.call_stack.append(CallStackFrame(func, self.module))
+            self.call_stack.append(CallStackFrame(func, func.get_module()))
             self.call_stack[-1].push_scope()
 
             # TODO: Check params

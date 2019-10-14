@@ -165,6 +165,10 @@ class ExprIdentifierLiteral(Expr):
         elif isinstance(ident, VType):
             return ident
 
+        elif isinstance(ident, VModule):
+            ident.type_checking()
+            return ident
+
         else:
             assert False, f"Unexpected identifier type {ident.__class__}"
 
@@ -364,6 +368,14 @@ class ExprMemberAccess(Expr):
         elif isinstance(t, VArray):
             if self.member_name == 'len':
                 return module.add_type(VInt())
+
+        elif isinstance(t, VModule):
+            t = t.get_identifier(self.member_name)
+
+            if isinstance(t, VStruct) or isinstance(t, VFunction):
+                return t.type
+            else:
+                return t
 
         else:
             assert False, f"Type `{t}` does not have any members"

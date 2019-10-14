@@ -40,6 +40,10 @@ class VAstTransformer(Transformer):
             elif isinstance(arg, tuple) and arg[0] == 'module' and isinstance(arg[1], VModule):
                 pass
 
+            elif isinstance(arg, tuple) and arg[0] == 'import' and isinstance(arg[1], list):
+                mod = self.workspace.load_module('.'.join(arg[1]))
+                module.identifiers[arg[1][-1]] = mod
+
             elif isinstance(arg, VStruct):
                 arg.type.module = module
                 arg.type = module.add_type(arg.type, arg.name)
@@ -61,6 +65,9 @@ class VAstTransformer(Transformer):
 
     def type_alias_decl(self, name, xtype):
         return name, xtype
+
+    def import_decl(self, *path):
+        return 'import', list(map(str, path))
 
     # Function declaration
 
@@ -224,6 +231,14 @@ class VAstTransformer(Transformer):
     def ident(self, name):
         return ExprIdentifierLiteral(str(name))
 
+    def module_path_ident(self, *names):
+        # TODO: Handle import stuff
+        names = list(names)
+        if len(names) == 1:
+            return None, names[0]
+        else:
+            return self.workspace.load_module('.'.join(names[-1:])), names[-1]
+
     def number(self, num):
         return ExprIntegerLiteral(int(num))
 
@@ -236,10 +251,10 @@ class VAstTransformer(Transformer):
     def struct_literal(self, ref, name, *exprs):
         # TODO: Need to extend this to support more than module local structs,
         # TODO: But also external module structs
-        return ExprStructLiteral(ref, VUnresolvedType(None, str(name)), list(exprs))
+        return ExprStructLiteral(ref, VUnresolvedType(name[0], name[1]), list(exprs))
 
     def struct_literal_named(self, ref, name, *elements):
-        return ExprStructLiteralNamed(ref, VUnresolvedType(None, str(name)), list(elements))
+        return ExprStructLiteralNamed(ref, VUnresolvedType(name[0], name[1]), list(elements))
 
     def struct_literal_named_item(self, name, expr):
         return str(name), expr
