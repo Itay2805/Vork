@@ -30,7 +30,7 @@ fn_param: NAME maybe_mut type_decl | NAME
 fn_return: [type_decl | "(" type_decl ("," type_decl)+ ")"]
 
 // Struct declaration
-struct_decl: "struct" NAME "{" _NEWLINE? embedded_struct_field struct_fields "}"
+struct_decl: maybe_pub "struct" NAME "{" _NEWLINE? embedded_struct_field struct_fields "}"
 struct_fields: (struct_field | struct_access_mod ":" _NEWLINE)*
 struct_field: NAME type_decl _NEWLINE
 !struct_access_mod: "mut"

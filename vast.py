@@ -389,12 +389,13 @@ class VFunction:
 
 class VStruct:
 
-    def __init__(self, name, struct_type, report):
+    def __init__(self, pub, name, struct_type, report):
         """
         :type name: str
         :type struct_type: VStructType
         """
         self.name = name
+        self.pub = pub
         self.type = struct_type
         self.report = report
 

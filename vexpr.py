@@ -386,9 +386,9 @@ class ExprMemberAccess(Expr):
 
     def resolve_type(self, module, scope):
         t = self.expr.resolve_type(module, scope)
-        default_assertion(t)
+        default_assertion(t, self.expr.report, scope.get_function().name)
 
-        # In a vstruct
+        # This a struct
         if isinstance(t, VStructType):
             newt = t.get_field(self.member_name)
             if newt is not None:
@@ -396,7 +396,8 @@ class ExprMemberAccess(Expr):
 
                 # Check if visible
                 if ac == ACCESS_PRIVATE or ac == ACCESS_PRIVATE_MUT:
-                    assert t.module == scope.get_function().get_module(), f"field `{t.name}.{self.member_name}` is not visible"
+                    if t.module != scope.get_function().get_module():
+                        raise TypeCheckError(self.report, f"field is not public", scope.get_function().name)
 
                 return newt.xtype
 
@@ -409,15 +410,16 @@ class ExprMemberAccess(Expr):
 
             if isinstance(t, VStruct) or isinstance(t, VFunction):
                 if t.get_module() != module:
-                    assert t.pub, f"Function `{t}` is not public!"
+                    if not t.pub:
+                        raise TypeCheckError(self.report, f"member is not public", scope.get_function().name)
                 return t.type
             else:
                 return t
 
         else:
-            assert False, f"Type `{t}` does not have any members"
+            raise TypeCheckError(self.expr.report, f"Type `{t}` does not have any members", scope.get_function().name)
 
-        assert False, f"Type `{t}` does not have member `{self.member_name}`"
+        raise TypeCheckError(self.expr.report, f"Type `{t}` does not have any members", scope.get_function().name)
 
     def is_mut(self, module, scope):
         if not self.expr.is_mut(module, scope):
@@ -538,7 +540,8 @@ class ExprArrayLiteralUninit(Expr):
     def resolve_type(self, module, scope):
         self.xtype = module.resolve_type(self.xtype)
         default_assertion(self.xtype, self.report, scope.get_function().name)
-        assert isinstance(self.length.resolve_type(module, scope), VIntegerType), "Length of array must be an integer"
+        if not isinstance(self.length.resolve_type(module, scope), VIntegerType):
+            raise TypeCheckError(self.length.report, "Length of array must be an integer", scope.get_function().name)
         return module.add_type(VArray(self.xtype))
 
     def is_mut(self, module, scope):
