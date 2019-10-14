@@ -17,6 +17,7 @@ _module_item: fn_decl
             | struct_decl
             | module_decl
             | import_decl
+            | interop_fn_decl
             | _NEWLINE
 
 // Misc
@@ -25,6 +26,7 @@ import_decl: "import" NAME ("." NAME)* _NEWLINE
 
 // Function declaration
 fn_decl: maybe_pub "fn" NAME "(" fn_params ")" fn_return stmt_list _NEWLINE
+interop_fn_decl: "fn" "C" "." NAME "(" fn_params ")" fn_return _NEWLINE
 fn_params: [fn_param ("," fn_param)*]
 fn_param: NAME maybe_mut type_decl | NAME
 fn_return: [type_decl | "(" type_decl ("," type_decl)+ ")"]

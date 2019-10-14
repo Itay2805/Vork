@@ -52,7 +52,9 @@ class StmtReturn(Stmt):
     def type_check(self, module, scope):
         func = scope.get_function()
         return_types = func.type.return_types  # type: List[Tuple[VType, bool]]
-        assert len(return_types) == len(self.exprs)
+
+        if len(return_types) != len(self.exprs):
+            raise TypeCheckError(self.report, f'return expected {len(return_types)} return expressions, got {len(self.exprs)}', scope.get_function().name)
 
         # TODO: Expending multiple return types
 

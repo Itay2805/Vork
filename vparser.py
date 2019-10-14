@@ -103,6 +103,9 @@ class VAstTransformer(Transformer):
                 arg.type.module = module
                 arg.type = module.add_type(arg.type, arg.report, arg.name)
 
+            elif isinstance(arg, VInteropFunction):
+                module.identifiers['C'][arg.name] = arg
+
             # Unknown module item
             else:
                 assert False, f"Unknown module item {arg}"
@@ -129,6 +132,18 @@ class VAstTransformer(Transformer):
     # Function declaration
 
     @v_args(meta=True)
+    def interop_fn_decl(self, children, meta):
+        func = VInteropFunction(str(children[0]))
+
+        for param in children[1]:
+            func.add_param(param[2], param[1])
+
+        for rtype in children[2]:
+            func.add_return_type(rtype)
+
+        return func
+
+    @v_args(meta=True)
     def fn_decl(self, children, meta):
         pub, name, params, return_types, stmts = children
 
@@ -147,6 +162,7 @@ class VAstTransformer(Transformer):
         func.root_scope.line_end = stmts[2]
         func.root_scope.reporter = self.reporter
         func.root_scope.fix_children()
+
         return func
 
     def fn_params(self, *params):

@@ -178,7 +178,7 @@ class ExprIdentifierLiteral(Expr):
         if ident is None:
             raise TypeCheckError(self.report, f"Unknown identifier `{self.name}`", scope.get_function().name)
 
-        if isinstance(ident, VFunction) or isinstance(ident, VBuiltinFunction):
+        if isinstance(ident, VFunction) or isinstance(ident, VInteropFunction):
             return ident.type
 
         elif isinstance(ident, VVariable):
@@ -188,7 +188,9 @@ class ExprIdentifierLiteral(Expr):
             return ident
 
         elif isinstance(ident, VModule):
-            ident.type_checking()
+            return ident
+
+        elif isinstance(ident, dict):
             return ident
 
         else:
@@ -197,7 +199,7 @@ class ExprIdentifierLiteral(Expr):
     def is_mut(self, module, scope):
         ident = scope.get_identifier(self.name)
 
-        if isinstance(ident, VFunction) or isinstance(ident, VBuiltinFunction):
+        if isinstance(ident, VFunction) or isinstance(ident, VInteropFunction):
             return False
 
         elif isinstance(ident, VVariable):
@@ -320,7 +322,8 @@ class ExprFunctionCall(Expr):
                 from_type = from_expr.resolve_type(module, scope)
                 to_mut = func.param_types[i][1]
                 to_type = func.param_types[i][0]
-                assert from_type == to_type, f'function agument at `{i}` expected `{to_type}`, got `{from_type}`'
+                if from_type != to_type:
+                    raise TypeCheckError(from_expr.report, f'function agument at `{i}` expected `{to_type}`, got `{from_type}`', scope.get_function().name)
                 assert to_mut == from_mut, f'function agument at `{i}` expected mut to be `{to_mut}`, got `{from_mut}`'
                 if from_mut:
                     assert from_mut == from_expr.is_mut(module, scope), f'tried to convert mut `{from_mut}`, got `{from_expr.is_mut(module, scope)}`'
@@ -415,6 +418,9 @@ class ExprMemberAccess(Expr):
                 return t.type
             else:
                 return t
+
+        elif isinstance(t, dict):
+            return t[self.member_name].type
 
         else:
             raise TypeCheckError(self.expr.report, f"Type `{t}` does not have any members", scope.get_function().name)

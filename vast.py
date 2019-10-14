@@ -117,9 +117,11 @@ class VModule:
     def __init__(self):
         from vworkspace import VWorkspace
         self.name = 'main'
+        self.ran_init = False
         self.types = []  # type: List[VType]
-        self.identifiers = {}  # type: Dict[str, VFunction or VType]
+        self.identifiers = {'C': {}}  # type: Dict[str, VFunction or VType]
         self.type_checked = False
+        self.is_good = True
         self.workspace = None  # type: VWorkspace
 
     def set_module_name(self, name):
@@ -254,7 +256,7 @@ class VModule:
         from vstmt import StmtReturn
 
         if self.type_checked:
-            return True
+            return self.is_good
         self.type_checked = True
 
         # We start by doing type resolving on all the module level stuff
@@ -269,7 +271,7 @@ class VModule:
                     ident.root_scope.add_variable(ident.param_names[i], ident.type.param_types[i][1], ident.type.param_types[i][0])
 
             # For builtin functions only need to resovle the signature
-            elif isinstance(ident, VBuiltinFunction):
+            elif isinstance(ident, VInteropFunction):
                 ident.type = self.resolve_type(ident.type)
 
             # If this is a type make sure it is resolved
@@ -279,6 +281,13 @@ class VModule:
             # For imported modules do type checking
             elif isinstance(ident, VModule):
                 ident.type_checking()
+
+            # Interops are simply stored in a dict
+            # because this will only have types it should be fine
+            elif isinstance(ident, dict):
+                for name in ident:
+                    ident[name].type = self.resolve_type(ident[name].type)
+
 
         is_good = True
 
@@ -291,6 +300,19 @@ class VModule:
                 if not ident.root_scope.type_check(self, ident.root_scope):
                     is_good = False
                     continue
+
+                # init functions must be fn() and can not be public
+                if ident.name == 'init':
+                    if len(ident.type.return_types) != 0:
+                        ident.report('error', 'init function cannot have return types')
+                        is_good = False
+                    elif len(ident.type.param_types) != 0:
+                        ident.report('error', 'init function cannot have param types')
+                        is_good = False
+                    elif ident.pub:
+                        ident.report('error', 'init function cannot be public')
+                        is_good = False
+
 
                 # TODO: A bit more advanced return checks
 
@@ -307,14 +329,12 @@ class VModule:
                     # Insert a return because this function has no return arguments and last item is not a return
                     ident.root_scope.code.append(StmtReturn([], None))
 
-        return is_good
+            elif isinstance(ident, VModule):
+                if not ident.type_checking():
+                    is_good = False
 
-    def add_builtin_function(self, func):
-        """
-        :type func: VBuiltinFunction
-        """
-        func.type = self.add_type(func.type, lambda level, msg: print(f'<dynamic>: {level}: {msg}'))
-        self.identifiers[func.name] = func
+        self.is_good = is_good
+        return is_good
 
 
 class VVariable:
@@ -333,15 +353,32 @@ class VVariable:
         return f'{self.name} {self.type}'
 
 
-class VBuiltinFunction:
+class VInteropFunction:
 
-    def __init__(self, name, params, return_types):
+    def __init__(self, name):
         self.name = name
-
         self.type = VFunctionType()
-        for p in params:
-            self.type.add_param(False, VUnresolvedType(None, p))
-        self.type.return_types = [VUnresolvedType(None, p) for p in return_types]
+
+    def add_param(self, mut, xtype):
+        """
+        :type name: str
+        :type mut: bool
+        :type xtype: VType
+        """
+        self.type.add_param(mut, xtype)
+
+    def add_return_type(self, type):
+        """
+        :type type: VType
+        """
+        self.type.add_return_type(type)
+
+    def __str__(self):
+        params = ', '.join([f'{self.param_names[i]} {"mut " if self.type.param_types[i][1] else ""}{self.type.param_types[i][0]}' for i in range(len(self.param_names))])
+        return_types = ', '.join(map(str, self.type.return_types))
+        if len(self.type.return_types) > 1:
+            return_types = f'({return_types})'
+        return f'fn C.{self.name} ({params}) {return_types}'
 
 
 class VFunction:

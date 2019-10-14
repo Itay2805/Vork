@@ -43,8 +43,6 @@ class VWorkspace:
         b.add_type(VIntegerType(128, False), False, 'u128')
         b.add_type(VBool(), False, 'bool')
 
-        b.add_builtin_function(VBuiltinFunction('print', ['int'], []))
-
         # Make sure we ignore the builtin as a root module
         self.root_module = None
 
@@ -99,7 +97,7 @@ class VWorkspace:
                 dir = os.path.join(folder, name.replace('.', '/'))
                 if os.path.exists(dir):
                     for file in os.listdir(dir):
-                        file = os.path.join(folder, file)
+                        file = os.path.join(dir, file)
                         with open(file, 'r') as f:
                             parse_tree = self.parser.parse(f.read())
                             got_any = True

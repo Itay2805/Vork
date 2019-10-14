@@ -362,7 +362,7 @@ class VInterpreter:
             return self._eval_statement(func.root_scope)
 
         # Builtin function
-        elif isinstance(func, VBuiltinFunction):
+        elif isinstance(func, VInteropFunction):
             if func.name == 'print':
                 print(params[0])
             else:
@@ -375,6 +375,18 @@ class VInterpreter:
 
         else:
             assert False, f"Unknown function `{func}`"
+
+    def run_inits(self):
+        modules = [self.module]
+        while len(modules) != 0:
+            module = modules.pop()
+            if module.ran_init:
+                continue
+
+            if 'init' in module and isinstance(module.identifiers['init'], VFunction):
+                self._eval_function(module.identifiers['init'])
+
+            module.ran_init = True
 
     def eval_function(self, name, params=None):
         return self._eval_function(self.module.get_identifier(name), params)

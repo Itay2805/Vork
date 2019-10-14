@@ -10,6 +10,9 @@ class VType:
     def __eq__(self, other):
         return isinstance(other, self.__class__)
 
+    def __ne__(self, other):
+        return not (self == other)
+
     def copy(self):
         return copy(self)
 
