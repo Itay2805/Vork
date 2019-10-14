@@ -16,3 +16,23 @@ creation of the array to the implementation of the code gen.
 
 this allows to easily have the interpreter without starting to have different builtin implementations
 in v itself (for example, currently the js code gen of v has different v builtin implementation)
+
+## TODO
+kinda in the order I wanna work on stuff and kinda not
+
+* ranged for loops (0..x)
+* go statement
+* consts
+* enums
+* optionals
+* methods
+* strings
+* maps
+* references/pointers/whatever
+* figure postfix and prefix ++/--
+* interfaces
+* attributes
+* fix embedded structs
+* operator overloading
+* generics
+* compile time if
