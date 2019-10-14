@@ -118,7 +118,10 @@ class VInterpreter:
             return res
 
         elif isinstance(expr, ExprUnary):
-            return eval(f'{expr.op}{self._eval_expression(expr.expr)}')
+            if expr.op == '!':
+                return not self._eval_expression(expr.expr)
+            else:
+                return eval(f'{expr.op}{self._eval_expression(expr.expr)}')
 
         elif isinstance(expr, ExprFunctionCall):
             ret = self._eval_function(self._eval_expression(expr.func_expr), [self._eval_expression(e[1]) for e in expr.arguments])

@@ -527,7 +527,10 @@ class ExprUnary(Expr):
 
     def resolve_type(self, module, scope):
         t = self.expr.resolve_type(module, scope)
-        assert isinstance(t, VIntegerType), f"unary op {self.op} only supports integer types (got {t}) (at `{self}`)"
+        if self.op == '!':
+            assert isinstance(t, VBool), f"unary op {self.op} only supports bool (got {t}) (at `{self}`)"
+        else:
+            assert isinstance(t, VIntegerType), f"unary op {self.op} only supports integer types (got {t}) (at `{self}`)"
         return t
 
     def is_mut(self, module, scope):

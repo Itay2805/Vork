@@ -10,7 +10,6 @@ fn test() Test {
 }
 
 fn main() {
-    for i := 0; i < 10; i += 1 {
-        print(i)
-    }
+    a := false
+    assert !a
 }
