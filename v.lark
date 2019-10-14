@@ -124,7 +124,7 @@ _expr: expr_logical_or
 // all the operators
 !_op_postfix: ("++"|"--")
 !_op_prefix: ("++"|"--")
-!_op_unary: ("-"|"!"|"~")
+!_op_unary: ("-"|"!"|"~"|"&"|"*")
 !_op_multiplicative: ("*"|"/"|"%")
 !_op_additive: ("+"|"-")
 !_op_shift: ("<<"|">>")

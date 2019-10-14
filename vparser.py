@@ -35,7 +35,14 @@ class ErrorReporter:
             my_end_col = end_col - 1
             if end_line != line:
                 my_end_col = len(code_line) - 1
-            print(' ' * (col - 1) + '^' + '~' * (my_end_col - (col - 1) - 1))
+
+            c = ''
+            for i in range(col - 1):
+                if code_line[i] == '\t':
+                    c += '\t'
+                else:
+                    c += ' '
+            print(c + '^' + '~' * (my_end_col - (col - 1) - 1))
             print()
 
         return report
@@ -125,9 +132,9 @@ class VAstTransformer(Transformer):
     def type_alias_decl(self, name, xtype):
         return name, xtype
 
-    @v_args(tree=True)
-    def import_decl(self, tree):
-        return 'import', list(map(str, tree.children)), self.reporter.reporter(tree)
+    @v_args(meta=True)
+    def import_decl(self, children, meta):
+        return 'import', list(map(str, children)), self.reporter.reporter_from_meta(meta)
 
     # Function declaration
 
@@ -157,10 +164,8 @@ class VAstTransformer(Transformer):
         for rtype in return_types:
             func.add_return_type(rtype)
 
-        func.root_scope.code = stmts[0]
-        func.root_scope.line_start = stmts[1]
-        func.root_scope.line_end = stmts[2]
-        func.root_scope.reporter = self.reporter
+        func.root_scope = stmts
+        func.root_scope.parent = func
         func.root_scope.fix_children()
 
         return func
@@ -278,13 +283,13 @@ class VAstTransformer(Transformer):
     def stmt_foreach(self, children, meta):
         name, expr, stmts = children
 
-        return StmtForeach(None, str(name), expr, stmts[0], self.reporter.reporter_from_meta(meta))
+        return StmtForeach(None, str(name), expr, stmts, self.reporter.reporter_from_meta(meta))
 
     @v_args(meta=True)
     def stmt_foreach_indexed(self, children, meta):
         index, item, expr, stmts = children
 
-        return StmtForeach(str(index), str(item), expr, stmts[0], self.reporter.reporter_from_meta(meta))
+        return StmtForeach(str(index), str(item), expr, stmts, self.reporter.reporter_from_meta(meta))
 
     @v_args(meta=True)
     def stmt_for(self, children, meta):
@@ -295,7 +300,7 @@ class VAstTransformer(Transformer):
             for i in range(len(decl.vars)):
                 decl.vars[i] = (True, decl.vars[i][1])
 
-        return StmtFor(decl, condition, expr, stmt_list[0], self.reporter.reporter_from_meta(meta))
+        return StmtFor(decl, condition, expr, stmt_list, self.reporter.reporter_from_meta(meta))
 
     @v_args(meta=True)
     def stmt_break(self, children, meta):
@@ -431,7 +436,13 @@ class VAstTransformer(Transformer):
         for stmt in children:
             if isinstance(stmt, Stmt):
                 stmts_lst.append(stmt)
-        return stmts_lst, meta.line, meta.end_line
+
+        stmts = StmtCompound(None, self.reporter.reporter_from_meta(meta))
+        stmts.code = stmts_lst
+        stmts.line_start = meta.line
+        stmts.line_end = meta.end_line
+        stmts.reporter = self.reporter
+        return stmts
 
 
 VParser = Lark.open('v.lark', propagate_positions=True)

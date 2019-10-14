@@ -151,8 +151,8 @@ class StmtIf(Stmt):
     def __init__(self, expr, stmts_true, stmts_false, report):
         """
         :type expr: Expr
-        :type stmts_true: List[Stmt]
-        :type stmts_false: List[Stmt] or None
+        :type stmts_true: StmtCompound
+        :type stmts_false: StmtCompound or None
         """
         super(StmtIf, self).__init__(report)
         self.expr = expr
@@ -164,12 +164,13 @@ class StmtIf(Stmt):
         if not isinstance(t, VBool):
             raise TypeCheckError(self.expr.report, f"if expected boolean, got `{t}`", scope.get_function().name)
 
-        for stmt in self.stmts_true:
-            stmt.type_check(module, scope)
+        is_good = self.stmts_true.type_check(module, scope)
 
         if self.stmts_false is not None:
-            for stmt in self.stmts_false:
-                stmt.type_check(module, scope)
+            if not self.stmts_false.type_check(module, scope):
+                is_good = False
+
+        return is_good
 
     def __str__(self):
         return f'`if {self.expr}`'
@@ -209,7 +210,7 @@ class StmtFor(Stmt):
         :type decl: StmtDeclare or None
         :type condition: Expr
         :type expe: Expr or StmtAssign
-        :type stmts: List[Stmt]
+        :type stmts: StmtCompound
         """
         super(StmtFor, self).__init__(report)
         self.decl = decl
@@ -234,8 +235,7 @@ class StmtFor(Stmt):
             self.expr.resolve_type(module, scope)
 
         # Check all the statements
-        for stmt in self.stmts:
-            stmt.type_check(module, scope)
+        return self.stmts.type_check(module, scope)
 
     def __str__(self):
         if self.decl is not None:
@@ -251,7 +251,7 @@ class StmtForeach(Stmt):
         :type index_name: str
         :type item_name: str
         :type expr: Expr
-        :type stmt_list: List[Stmt]
+        :type stmt_list: StmtCompound
         """
         super(StmtForeach, self).__init__(report)
         self.expr = expr
@@ -261,23 +261,22 @@ class StmtForeach(Stmt):
 
     def type_check(self, module, scope):
         t = self.expr.resolve_type(module, scope)
+        scope.get_function()
 
         if isinstance(t, VArray):
             if self.index_name is not None:
-                scope.add_variable(self.index_name, False, VInt)
-            scope.add_variable(self.item_name, False, t.xtype)
+                self.stmts.add_variable(self.index_name, False, VInt)
+            self.stmts.add_variable(self.item_name, False, t.xtype)
 
         elif isinstance(t, VMap):
             if self.index_name is not None:
-                scope.add_variable(self.index_name, False, t.key_type)
-            scope.add_variable(self.item_name, False, t.value_type)
+                self.stmts.add_variable(self.index_name, False, t.key_type)
+            self.stmts.add_variable(self.item_name, False, t.value_type)
 
         else:
             raise TypeCheckError(self.expr.report, f"type `{t}` is not iterable", scope.get_function().name)
 
-        # Check all the statements
-        for stmt in self.stmts:
-            stmt.type_check(module, scope)
+        return self.stmts.type_check(module, scope)
 
     def __str__(self):
         if self.index_name is not None:

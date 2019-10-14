@@ -62,10 +62,17 @@ class StmtCompound(Stmt):
         self.line_end = 0
 
     def fix_children(self):
+        from vstmt import StmtIf, StmtFor, StmtForeach
         for c in self.code:
             if isinstance(c, StmtCompound):
                 c.parent = self
                 c.fix_children()
+            elif isinstance(c, StmtIf):
+                c.stmts_true.parent = self
+                c.stmts_true.fix_children()
+            elif isinstance(c, StmtForeach) or isinstance(c, StmtFor):
+                c.stmts.parent = self
+                c.stmts.fix_children()
 
     def type_check(self, module, scope):
         from vexpr import TypeCheckError

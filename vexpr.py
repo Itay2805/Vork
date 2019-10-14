@@ -406,7 +406,7 @@ class ExprMemberAccess(Expr):
 
         elif isinstance(t, VArray):
             if self.member_name == 'len':
-                return module.add_type(VInt())
+                return module.add_type(VInt)
 
         elif isinstance(t, VModule):
             t = t.get_identifier(self.member_name)
