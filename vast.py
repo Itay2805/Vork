@@ -80,7 +80,7 @@ class StmtCompound(Stmt):
         for c in self.code:
             try:
                 ret = c.type_check(module, self)
-                if ret is not None and ret:
+                if ret is not None and not ret:
                     is_good = False
             except TypeCheckError as e:
                 is_good = False
@@ -266,6 +266,8 @@ class VModule:
             return self.is_good
         self.type_checked = True
 
+        is_good = True
+
         # We start by doing type resolving on all the module level stuff
         for name in self.identifiers:
             ident = self.identifiers[name]
@@ -287,16 +289,14 @@ class VModule:
 
             # For imported modules do type checking
             elif isinstance(ident, VModule):
-                ident.type_checking()
+                if not ident.type_checking():
+                    is_good = False
 
             # Interops are simply stored in a dict
             # because this will only have types it should be fine
             elif isinstance(ident, dict):
                 for name in ident:
                     ident[name].type = self.resolve_type(ident[name].type)
-
-
-        is_good = True
 
         # Now the module level should be fine, we can do type checking on the
         # statement level

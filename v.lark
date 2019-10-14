@@ -51,8 +51,8 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
      | "for" NAME "," NAME "in" _expr stmt_list -> stmt_foreach_indexed
      | "for" stmt_list-> stmt_forever
      | "for" (maybe_var_decl|stmt_assignment) ";" _expr ";" (_expr | stmt_assignment) stmt_list -> stmt_for
-     | "break" -> stmt_break
-     | "continue" -> stmt_continue
+     | "break" _NEWLINE -> stmt_break
+     | "continue" _NEWLINE -> stmt_continue
      | stmt_var_decl _NEWLINE
      | stmt_assignment _NEWLINE
      | stmt_if

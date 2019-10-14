@@ -198,18 +198,16 @@ class VInterpreter:
 
             # Eval the if
             if expr:
-                for s in stmt.stmts_true:
-                    ret = self._eval_statement(s)
-                    if ret is not None:
-                        return ret
+                ret = self._eval_statement(stmt.stmts_true)
+                if ret is not None:
+                    return ret
 
             # Eval the else
             else:
                 if stmt.stmts_false is not None:
-                    for s in stmt.stmts_false:
-                        ret = self._eval_statement(s)
-                        if ret is not None:
-                            return ret
+                    ret = self._eval_statement(stmt.stmts_false)
+                    if ret is not None:
+                        return ret
 
             self.call_stack[-1].pop_scope()
 
@@ -252,31 +250,22 @@ class VInterpreter:
 
             # While the condition is true and we should run
             while should_run and self._eval_expression(stmt.condition):
-                self.should_continue = False
-                self.should_break = False
-
-                for s in stmt.stmts:
-                    ret = self._eval_statement(s)
-                    if ret is not None:
-                        return ret
-
-                    # Break from running of statements
-                    # and tell the loop to stop
-                    if self.should_break:
-                        should_run = False
-                        break
-
-                    # Break from the running of statements
-                    # but continue running
-                    elif self.should_continue:
-                        break
+                self._eval_statement(stmt.stmts)
 
                 # Run the expression
                 if not self.should_break:
+                    # Reset continue if got it
+                    self.should_continue = False
+
                     if isinstance(stmt.expr, Stmt):
                         self._eval_statement(stmt.expr)
                     elif isinstance(stmt.expr, Expr):
                         self._eval_expression(stmt.expr)
+                else:
+                    # Catch the break
+                    self.should_continue = False
+                    self.should_break = False
+                    break
 
             self.call_stack[-1].pop_scope()
 
@@ -291,24 +280,19 @@ class VInterpreter:
                 e = self._eval_expression(stmt.expr)
                 for item in e:
                     self.call_stack[-1].set_variable(stmt.item_name, item)
-                    for s in stmt.stmts:
-                        ret = self._eval_statement(s)
-                        if ret is not None:
-                            return ret
 
-                        # Break from running of statements
-                        # and tell the loop to stop
-                        if self.should_break:
-                            should_run = False
-                            break
+                    ret = self._eval_statement(stmt.stmts)
+                    if ret is not None:
+                        return ret
 
-                        # Break from the running of statements
-                        # but continue running
-                        elif self.should_continue:
-                            break
-
-                    if not should_run:
+                    # Got a break, so break
+                    if self.should_break:
+                        self.should_break = False
+                        self.should_continue = False
                         break
+
+                    # make sure to reset the continue
+                    self.should_continue = False
 
             # for the case of indexed array
             else:
@@ -361,10 +345,16 @@ class VInterpreter:
 
             return self._eval_statement(func.root_scope)
 
-        # Builtin function
+        # Interop function
         elif isinstance(func, VInteropFunction):
+            import random
+
             if func.name == 'print':
                 print(params[0])
+            elif func.name == 'srand':
+                random.seed(params[0])
+            elif func.name == 'rand':
+                return random.randint(0, 0x7fffffff)
             else:
                 assert False, f"Unknown builtin function `{func.name}`"
 
