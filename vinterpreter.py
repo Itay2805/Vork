@@ -107,8 +107,8 @@ class VInterpreter:
             return self.call_stack[-1].get_variable(expr.name)
 
         elif isinstance(expr, ExprBinary):
-            a = self._eval_expression(expr.expr0)
-            res = eval(f'{a} {expr.op} {self._eval_expression(expr.expr1)}')
+            a = self._eval_expression(expr.left_expr)
+            res = eval(f'{a} {expr.op} {self._eval_expression(expr.right_expr)}')
 
             if expr.op not in ['>', '<', '!=', '==', '<=', '>=']:
                 if isinstance(a, int):

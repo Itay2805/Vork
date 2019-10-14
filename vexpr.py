@@ -248,15 +248,15 @@ class ExprBinary(Expr):
         """
         super(ExprBinary, self).__init__(report)
         self.op = op
-        self.expr0 = left_expr
-        self.expr1 = right_expr
+        self.left_expr = left_expr
+        self.right_expr = right_expr
 
     def resolve_type(self, module, scope):
-        t0 = self.expr0.resolve_type(module, scope)
-        t1 = self.expr1.resolve_type(module, scope)
+        t0 = self.left_expr.resolve_type(module, scope)
+        t1 = self.right_expr.resolve_type(module, scope)
 
-        default_assertion(t0, self.expr0.report, scope.get_function().name)
-        default_assertion(t1, self.expr1.report, scope.get_function().name)
+        default_assertion(t0, self.left_expr.report, scope.get_function().name)
+        default_assertion(t1, self.right_expr.report, scope.get_function().name)
 
         # The types need to be the same
         # TODO: have this add casts or something
@@ -290,7 +290,7 @@ class ExprBinary(Expr):
         return True
 
     def __str__(self):
-        return f'{self.expr0} {self.op} {self.expr1}'
+        return f'{self.left_expr} {self.op} {self.right_expr}'
 
 
 class ExprFunctionCall(Expr):
@@ -309,7 +309,7 @@ class ExprFunctionCall(Expr):
 
     def resolve_type(self, module, scope):
         func = self.func_expr.resolve_type(module, scope)
-        default_assertion(func)
+        default_assertion(func, self.func_expr.report, scope.get_function().name)
 
         # Nomral functions
         if isinstance(func, VFunctionType):
@@ -461,19 +461,21 @@ class ExprIndex(Expr):
     def resolve_type(self, module, scope):
         t = self.src.resolve_type(module, scope)
         at_type = self.at.resolve_type(module, scope)
-        default_assertion(t)
-        default_assertion(at_type)
+        default_assertion(t, self.src.report, scope.get_function().name)
+        default_assertion(at_type, self.at.report, scope.get_function().name)
 
         if isinstance(t, VArray):
-            assert isinstance(at_type, VIntegerType), f"array index must be an integer type (got {at_type})"
+            if not isinstance(at_type, VIntegerType):
+                raise TypeCheckError(self.at.report, f"array index must be an integer type (got {at_type})", scope.get_function().name)
             return t.xtype
 
         elif isinstance(t, VMap):
-            assert at_type == t.key_type, f"map of type {t} expected key {t.key_type}, got {at_type}"
+            if at_type != t.key_type:
+                raise TypeCheckError(self.at.report, f"map of type {t} expected key {t.key_type}, got {at_type}", scope.get_function().name)
             return t.value_type
 
         else:
-            assert False, f"Index operator not supported for type {t}"
+            raise TypeCheckError(self.report, f"Index operator not supported for type {t}", scope.get_function().name)
 
     def is_mut(self, module, scope):
         return self.src.is_mut(module, scope)
@@ -560,9 +562,11 @@ class ExprUnary(Expr):
     def resolve_type(self, module, scope):
         t = self.expr.resolve_type(module, scope)
         if self.op == '!':
-            assert isinstance(t, VBool), f"unary op {self.op} only supports bool (got {t}) (at `{self}`)"
+            if not isinstance(t, VBool):
+                raise TypeCheckError(self.expr.report, f"unary op `{self.op}` only supports bool (got `{t}`)", scope.get_function().name)
         else:
-            assert isinstance(t, VIntegerType), f"unary op {self.op} only supports integer types (got {t}) (at `{self}`)"
+            if not isinstance(t, VIntegerType):
+                raise TypeCheckError(self.expr.report, f"unary op `{self.op}` only supports integer types (got `{t}`)", scope.get_function().name)
         return t
 
     def is_mut(self, module, scope):

@@ -271,12 +271,12 @@ def default_value_for_type(xtype):
     from vexpr import ExprBoolLiteral, ExprIntegerLiteral, ExprStructLiteral
 
     default = {
-        VBool: ExprBoolLiteral(False),
-        VStructType: ExprStructLiteral(False, xtype, [])
+        VBool: ExprBoolLiteral(False, None),
+        VStructType: ExprStructLiteral(False, xtype, [], None)
     }
 
     # Special case to handle all integers
     if isinstance(xtype, VIntegerType):
-        return ExprIntegerLiteral(0)
+        return ExprIntegerLiteral(0, None)
 
     return default[xtype.__class__]

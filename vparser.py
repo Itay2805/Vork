@@ -205,17 +205,20 @@ class VAstTransformer(Transformer):
     # Statements
     ############################################################
 
-    def stmt_return(self, *exprs):
-        return StmtReturn(list(exprs))
+    @v_args(meta=True)
+    def stmt_return(self, children, meta):
+        return StmtReturn(children, self.reporter.reporter_from_meta(meta))
 
-    def stmt_expr(self, expr):
-        if expr is None or not isinstance(expr, Expr):
+    @v_args(meta=True)
+    def stmt_expr(self, children, meta):
+        if children[0] is None or not isinstance(children[0], Expr):
             return None
-        return StmtExpr(expr)
+        return StmtExpr(children[0], self.reporter.reporter_from_meta(meta))
 
-    def stmt_assert(self, expr):
+    @v_args(meta=True)
+    def stmt_assert(self, children, meta):
         # TODO: Maybe convert into a builtin function call
-        return StmtAssert(expr)
+        return StmtAssert(children[0], self.reporter.reporter_from_meta(meta))
 
     @v_args(meta=True)
     def stmt_var_decl(self, children, meta):
@@ -227,8 +230,11 @@ class VAstTransformer(Transformer):
     def var_decl(self, mut, name):
         return mut, str(name)
 
-    def stmt_if(self, expr, stmt_list, *stmt_else):
-        return StmtIf(expr, stmt_list, stmt_else[0] if len(stmt_else) > 0 else None)
+    @v_args(meta=True)
+    def stmt_if(self, children, meta):
+        expr, stmt_list = children[:2]
+        stmt_else = children[2:]
+        return StmtIf(expr, stmt_list, stmt_else[0] if len(stmt_else) > 0 else None, self.reporter.reporter_from_meta(meta))
 
     def stmt_else(self, stmt_list):
         return stmt_list
@@ -236,36 +242,52 @@ class VAstTransformer(Transformer):
     def stmt_else_if(self, stmt_if):
         return [stmt_if]
 
-    def stmt_assign(self, dest, op, expr):
+    @v_args(meta=True)
+    def stmt_assign(self, children, meta):
+        dest, op, expr = children
         if len(op) == 1:
-            return StmtAssign(dest, expr)
+            return StmtAssign(dest, expr, self.reporter.reporter_from_meta(meta))
         else:
-            return StmtAssign(dest, ExprBinary(op[:-1], dest, expr))
+            return StmtAssign(dest, ExprBinary(op[:-1], dest, expr, self.reporter.reporter_from_meta(meta)), self.reporter.reporter_from_meta(meta))
 
-    def stmt_forever(self, stmt_list):
+    @v_args(meta=True)
+    def stmt_forever(self, children, meta):
         # for -> for ; true; 0
-        return StmtFor(None, ExprBoolLiteral(True), ExprIntegerLiteral(0), stmt_list)
+        cond = ExprBoolLiteral(True, self.reporter.reporter_from_meta(meta))
+        expr = ExprIntegerLiteral(0, self.reporter.reporter_from_meta(meta))
 
-    def stmt_foreach(self, name, expr, stmts):
-        return StmtForeach(None, str(name), expr, stmts)
+        return StmtFor(None, cond, expr, children[0][0], self.reporter.reporter_from_meta(meta))
 
-    def stmt_foreach_indexed(self, index, item, expr, stmts):
-        return StmtForeach(str(index), str(item), expr, stmts)
+    @v_args(meta=True)
+    def stmt_foreach(self, children, meta):
+        name, expr, stmts = children
 
-    def stmt_for(self, decl, condition, expr, stmt_list):
+        return StmtForeach(None, str(name), expr, stmts[0], self.reporter.reporter_from_meta(meta))
+
+    @v_args(meta=True)
+    def stmt_foreach_indexed(self, children, meta):
+        index, item, expr, stmts = children
+
+        return StmtForeach(str(index), str(item), expr, stmts[0], self.reporter.reporter_from_meta(meta))
+
+    @v_args(meta=True)
+    def stmt_for(self, children, meta):
+        decl, condition, expr, stmt_list = children
 
         # Make the declared types be mut by default
         if isinstance(decl, StmtDeclare):
             for i in range(len(decl.vars)):
                 decl.vars[i] = (True, decl.vars[i][1])
 
-        return StmtFor(decl, condition, expr, stmt_list)
+        return StmtFor(decl, condition, expr, stmt_list[0], self.reporter.reporter_from_meta(meta))
 
-    def stmt_break(self):
-        return StmtBreak()
+    @v_args(meta=True)
+    def stmt_break(self, children, meta):
+        return StmtBreak(self.reporter.reporter_from_meta(meta))
 
-    def stmt_continue(self):
-        return StmtContinue()
+    @v_args(meta=True)
+    def stmt_continue(self, children, meta):
+        return StmtContinue(self.reporter.reporter_from_meta(meta))
 
     ############################################################
     # Expressions
@@ -277,7 +299,7 @@ class VAstTransformer(Transformer):
 
     @v_args(meta=True)
     def expr_binary(self, children, meta):
-        return ExprBinary(children[0], children[1], children[2], self.reporter.reporter_from_meta(meta))
+        return ExprBinary(children[1], children[0], children[2], self.reporter.reporter_from_meta(meta))
 
     @v_args(meta=True)
     def expr_fn_call(self, children, meta):

@@ -122,4 +122,4 @@ class VWorkspace:
         This is going to start from the root module, and because we will get into VModules
         imported into the root module, it should type check everything which is relevant
         """
-        self.root_module.type_checking()
+        return self.root_module.type_checking()

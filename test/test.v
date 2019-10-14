@@ -1,15 +1,15 @@
 module main
 
-struct Test {
-mut:
-    a int
-}
-
-fn test() Test {
-    return Test{3}
+fn range(len int) []int {
+    mut arr := [len]int
+    for i := 0; i < len; i += 1 {
+        arr[i] = i
+    }
+    return arr
 }
 
 fn main() {
-    a := false
-    assert !a
+    for i in range(6) {
+        print(i)
+    }
 }

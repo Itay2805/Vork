@@ -36,6 +36,9 @@ class Expr:
 
 class Stmt:
 
+    def __init__(self, report):
+        self.report = report
+
     def type_check(self, module, scope):
         """
         :type module: VModule
@@ -46,10 +49,11 @@ class Stmt:
 
 class StmtCompound(Stmt):
 
-    def __init__(self, parent):
+    def __init__(self, parent, report):
         """
         :type parent: StmtCompound or VFunction
         """
+        super(StmtCompound, self).__init__(report)
         self.parent = parent
         self.variables = {}  # type: Dict[str, VVariable]
         self.code = []  # type: List[Stmt]
@@ -65,11 +69,16 @@ class StmtCompound(Stmt):
 
     def type_check(self, module, scope):
         from vexpr import TypeCheckError
+        got_error = False
         for c in self.code:
             try:
-                c.type_check(module, self)
+                ret = c.type_check(module, self)
+                if ret is not None and ret:
+                    got_error = True
             except TypeCheckError as e:
+                got_error = True
                 e.report('error', e.msg, e.func)
+        return got_error
 
     def get_identifier(self, name):
         if name in self.variables:
@@ -270,13 +279,17 @@ class VModule:
             elif isinstance(ident, VModule):
                 ident.type_checking()
 
+        got_errors = False
+
         # Now the module level should be fine, we can do type checking on the
         # statement level
         for name in self.identifiers:
             ident = self.identifiers[name]
             if isinstance(ident, VFunction):
                 # Do normal type checking
-                ident.root_scope.type_check(self, ident.root_scope)
+                if not ident.root_scope.type_check(self, ident.root_scope):
+                    got_errors = True
+                    continue
 
                 # TODO: A bit more advanced return checks
 
@@ -292,6 +305,8 @@ class VModule:
                 elif len(ident.root_scope.code) == 0 or not isinstance(ident.root_scope.code[-1], StmtReturn):
                     # Insert a return because this function has no return arguments and last item is not a return
                     ident.root_scope.code.append(StmtReturn([]))
+
+        return got_errors
 
     def add_builtin_function(self, func):
         """
@@ -336,7 +351,7 @@ class VFunction:
         self.pub = False
         self.type = VFunctionType()
         self.param_names = []  # type: List[str]
-        self.root_scope = StmtCompound(self)
+        self.root_scope = StmtCompound(self, report)
         self.scope_stack = [self.root_scope]  # type: List[StmtCompound]
 
     def get_module(self):
