@@ -45,7 +45,6 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
 
 ?stmt: "return" [_expr ("," _expr)*] _NEWLINE -> stmt_return
      | "assert" _expr _NEWLINE -> stmt_assert
-     | _expr _op_assignment _expr _NEWLINE -> stmt_op_assign
      | "for" NAME "in" _expr "{" stmt_list "}" -> stmt_foreach
      | "for" NAME "," NAME "in" _expr "{" stmt_list "}" -> stmt_foreach_indexed
      | "for" "{" stmt_list "}"-> stmt_forever
@@ -61,7 +60,8 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
 stmt_var_decl: var_decl_vars ":=" _expr
 !maybe_var_decl: stmt_var_decl?
 
-?stmt_assignment: _expr "=" _expr -> stmt_assign
+?stmt_assignment: (ident|expr_member_access|expr_index) _op_assignment _expr -> stmt_assign
+!_op_assignment: ("+="|"-="|"*="|"/="|"%="|"<<="|">>="|"|="|"&="|"^="|"=")
 
 stmt_if: "if" _expr "{" stmt_list "}" (stmt_else | _NEWLINE)
 ?stmt_else: "else" "{" stmt_list "}" _NEWLINE -> stmt_else
@@ -69,9 +69,6 @@ stmt_if: "if" _expr "{" stmt_list "}" (stmt_else | _NEWLINE)
 
 var_decl: maybe_mut NAME
 var_decl_vars: var_decl ("," var_decl)*
-
-
-!_op_assignment: ("+="|"-="|"*="|"/="|"%="|"<<="|">>="|"|="|"&="|"^=")
 
 stmt_list: stmt*
 
@@ -115,15 +112,17 @@ _expr: expr_logical_or
 ?expr_multiplicative: expr_unary _op_multiplicative expr_unary -> expr_binary
                     | expr_unary
 
-?expr_unary: _op_unary expr_postfix -> expr_unary
-           | expr_postfix
+?expr_unary: _op_unary expr_fix -> expr_unary
+           | expr_fix
 
-?expr_postfix: expr_others _op_postfix -> expr_postfix
-             | expr_others
+?expr_fix: (expr_member_access|expr_index|ident) _op_postfix -> expr_postfix
+         | _op_prefix (expr_member_access|expr_index|ident) -> expr_prefix
+         | expr_others
 
 // all the operators
 !_op_postfix: ("++"|"--")
-!_op_unary: ("-"|"!"|"++"|"--"|"~")
+!_op_prefix: ("++"|"--")
+!_op_unary: ("-"|"!"|"~")
 !_op_multiplicative: ("*"|"/"|"%")
 !_op_additive: ("+"|"-")
 !_op_shift: ("<<"|">>")
@@ -135,10 +134,13 @@ _expr: expr_logical_or
 !_op_logical_and: "&&"
 !_op_logical_or: "||"
 
-?expr_others: _expr "." NAME -> expr_member_access
-            | _expr "(" (maybe_mut _expr ("," maybe_mut _expr)*)? ")" -> expr_fn_call
-            | _expr "[" _expr "]" -> expr_index
+?expr_others: _expr "(" (maybe_mut _expr ("," maybe_mut _expr)*)? ")" -> expr_fn_call
+            | expr_member_access
+            | expr_index
             | expr_literals
+
+expr_member_access: _expr "." NAME
+expr_index: _expr "[" _expr "]"
 
 ?expr_literals: "(" _expr ")"
           | "none" -> const_none

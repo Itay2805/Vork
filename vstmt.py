@@ -165,12 +165,13 @@ class StmtIf(Stmt):
 
 class StmtAssign(Stmt):
 
-    def __init__(self, dest, expr):
+    def __init__(self, dest, expr, op=None):
         """
         :type dest: Expr
         :type expr: Expr
         """
         self.dest = dest
+        self.op = op
         self.expr = expr
 
     def type_check(self, module, scope):

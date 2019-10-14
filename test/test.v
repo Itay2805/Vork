@@ -10,5 +10,7 @@ fn test() Test {
 }
 
 fn main() {
-    mut t := test()
+    for i := 0; i < 10; i += 1 {
+        print(i)
+    }
 }

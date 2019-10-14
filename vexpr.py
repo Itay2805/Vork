@@ -218,15 +218,15 @@ class ExprBinary(Expr):
         '<':  ([VIntegerType, VBool], VBool()),
     }
 
-    def __init__(self, op, expr0, expr1):
+    def __init__(self, op, left_expr, right_expr):
         """
         :type op: str
-        :type expr0: Expr
-        :type expr1: Expr
+        :type left_expr: Expr
+        :type right_expr: Expr
         """
         self.op = op
-        self.expr0 = expr0
-        self.expr1 = expr1
+        self.expr0 = left_expr
+        self.expr1 = right_expr
 
     def resolve_type(self, module, scope):
         t0 = self.expr0.resolve_type(module, scope)

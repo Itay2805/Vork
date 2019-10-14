@@ -10,6 +10,11 @@ class VAstTransformer(Transformer):
     def __init__(self, workspace):
         super(VAstTransformer, self).__init__()
         self.workspace = workspace
+        self._temp_counter = 0
+
+    def get_temp(self):
+        self._temp_counter += 1
+        return f'${self._temp_counter - 1}'
 
     def start(self, *args):
         # Find the module
@@ -172,8 +177,11 @@ class VAstTransformer(Transformer):
     def stmt_else_if(self, stmt_if):
         return [stmt_if]
 
-    def stmt_assign(self, dest, expr):
-        return StmtAssign(dest, expr)
+    def stmt_assign(self, dest, op, expr):
+        if len(op) == 1:
+            return StmtAssign(dest, expr)
+        else:
+            return StmtAssign(dest, ExprBinary(op[:-1], dest, expr))
 
     def stmt_forever(self, stmt_list):
         # for -> for ; true; 0
@@ -205,7 +213,6 @@ class VAstTransformer(Transformer):
     ############################################################
 
     def expr_unary(self, op, expr):
-        # TODO: Special handling for ++/--
         return ExprUnary(op, expr)
 
     def expr_binary(self, expr0, op, expr1):
