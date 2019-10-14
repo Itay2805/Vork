@@ -53,16 +53,13 @@ class StmtReturn(Stmt):
         # TODO: Expending multiple return types
 
         for i in range(len(return_types)):
-            to_type = return_types[i][0]
-            to_mut = return_types[i][1]
+            to_type = return_types[i]
 
             expr = self.exprs[i]
             expr_type = expr.resolve_type(module, scope)
-            expr_mut = expr.is_mut(module, scope)
 
             assert not isinstance(expr_type, list), "Expending function multiple results into a return is not supported yet"
             assert to_type == expr_type, f"return expected `{to_type}` for return at {i}, got `{expr_type}`"
-            assert (expr_mut == to_mut) or (not to_mut and expr_mut)
 
     def __str__(self):
         exprs = ', '.join(map(str, self.exprs))

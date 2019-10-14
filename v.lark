@@ -27,7 +27,7 @@ import_decl: "import" NAME ("." NAME)* _NEWLINE
 fn_decl: maybe_pub "fn" NAME "(" fn_params ")" fn_return "{" stmt_list "}" _NEWLINE
 fn_params: [fn_param ("," fn_param)*]
 fn_param: NAME maybe_mut type_decl | NAME
-fn_return: [maybe_mut type_decl | "(" maybe_mut type_decl ("," maybe_mut type_decl)+ ")"]
+fn_return: [type_decl | "(" type_decl ("," type_decl)+ ")"]
 
 // Struct declaration
 struct_decl: "struct" NAME "{" _NEWLINE? embedded_struct_field struct_fields "}"

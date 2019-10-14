@@ -301,7 +301,7 @@ class ExprFunctionCall(Expr):
 
             # If returns one type, return 1 type
             if len(func.return_types) == 1:
-                return func.return_types[0][0]
+                return func.return_types[0]
 
             # If does not return anything, return void type
             elif len(func.return_types) == 0:
@@ -310,7 +310,7 @@ class ExprFunctionCall(Expr):
             # If has multiple types just return them all
             # TODO: make sure to handle list of types everywhere
             else:
-                return [ret[0] for ret in func.return_types]
+                return func.return_types
 
         # int casts
         elif isinstance(func, VIntegerType):
@@ -323,13 +323,21 @@ class ExprFunctionCall(Expr):
             assert False, f"the type `{func}` is not callable"
 
     def is_mut(self, module, scope):
-        mut = [arg[1].is_mut(module, scope) for arg in self.arguments]
-        if len(mut) == 1:
-            return mut[0]
-        elif len(mut) == 0:
-            return False
-        else:
-            return mut
+        func = self.func_expr.resolve_type(module, scope)
+        if isinstance(func, VFunctionType):
+            if len(func.return_types) > 1:
+                return [True] * len(func.return_types)
+
+            elif len(func.return_types) == 1:
+                return True
+
+            else:
+                return False
+
+        elif isinstance(func, VIntegerType):
+            return True
+
+        assert False
 
     def __str__(self):
         args = ', '.join(['mut ' if arg[0] else '' + str(arg[1]) for arg in self.arguments])
@@ -373,6 +381,8 @@ class ExprMemberAccess(Expr):
             t = t.get_identifier(self.member_name)
 
             if isinstance(t, VStruct) or isinstance(t, VFunction):
+                if t.get_module() != module:
+                    assert t.pub, f"Function `{t}` is not public!"
                 return t.type
             else:
                 return t
@@ -403,6 +413,8 @@ class ExprMemberAccess(Expr):
             # Always mut
             elif ac == ACCESS_PUBLIC_MUT:
                 return True
+
+        return False
 
     def __str__(self):
         return f'{self.expr}.{self.member_name}'

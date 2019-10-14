@@ -144,7 +144,7 @@ class VFunctionType(VType):
     def __init__(self):
         super(VFunctionType, self).__init__()
         self.param_types = []  # type: List[Tuple[VType, bool]]
-        self.return_types = []  # type: List[Tuple[VType, bool]]
+        self.return_types = []  # type: List[VType]
 
     def add_param(self, mut, xtype):
         """
@@ -153,12 +153,12 @@ class VFunctionType(VType):
         """
         self.param_types.append((xtype, mut))
 
-    def add_return_type(self, mut, xtype):
+    def add_return_type(self, xtype):
         """
         :type mut: bool
         :type type: VType
         """
-        self.return_types.append((xtype, mut))
+        self.return_types.append(xtype)
 
     def __eq__(self, other):
         if isinstance(other, VFunctionType):
@@ -174,7 +174,7 @@ class VFunctionType(VType):
         params = ', '.join(['mut ' if param[1] else '' + str(param[0]) for param in self.param_types])
 
         # Format return types
-        return_types = ', '.join(['mut ' if return_type[1] else '' + str(return_type[0]) for return_type in self.return_types])
+        return_types = ', '.join(map(str, self.return_types))
         if len(self.return_types) > 1:
             return_types = f'({return_types})'
 

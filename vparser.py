@@ -82,7 +82,7 @@ class VAstTransformer(Transformer):
             func.add_param(param[0], param[2], param[1])
 
         for rtype in return_types:
-            func.add_return_type(rtype[0], rtype[1])
+            func.add_return_type(rtype)
 
         func.root_scope.code = stmts
         func.root_scope.fix_children()
@@ -107,10 +107,7 @@ class VAstTransformer(Transformer):
             return str(args[0]), args[2], args[1]
 
     def fn_return(self, *return_types):
-        rets = []
-        for i in range(len(return_types) // 2):
-            rets.append((return_types[i * 2], return_types[i * 2 + 1]))
-        return rets
+        return list(return_types)
 
     # Struct declaration
 

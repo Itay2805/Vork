@@ -77,7 +77,7 @@ class VInterpreter:
             fields = expr.fields
 
             for field in expr.xtype.fields:
-                strct[field[0]] = self._eval_expression(fields[0])
+                strct[field.name] = self._eval_expression(fields[0])
                 fields = fields[1:]
 
         elif isinstance(expr, ExprStructLiteralNamed):

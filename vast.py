@@ -193,7 +193,7 @@ class VModule:
             # resolve the arguments
             for i in range(len(xtype.return_types)):
                 return_type = xtype.return_types[i]
-                xtype.return_types[i] = xtype.module.resolve_type(return_type[0]), return_type[1]
+                xtype.return_types[i] = xtype.module.resolve_type(return_type)
 
         # Handle builtin types
         elif isinstance(xtype, VBool) or isinstance(xtype, VIntegerType):
@@ -339,15 +339,15 @@ class VFunction:
         self.param_names.append(name)
         self.type.add_param(mut, xtype)
 
-    def add_return_type(self, mut, type):
+    def add_return_type(self, type):
         """
         :type type: VType
         """
-        self.type.add_return_type(mut, type)
+        self.type.add_return_type(type)
 
     def __str__(self):
-        params = ', '.join([f'{self.param_names[i]} {self.type.param_types[i]}' for i in range(len(self.param_names))])
-        return_types = ', '.join(["mut " if arg[1] else "" + str(arg[0]) for arg in self.type.return_types])
+        params = ', '.join([f'{self.param_names[i]} {"mut " if self.type.param_types[i][1] else ""}{self.type.param_types[i][0]}' for i in range(len(self.param_names))])
+        return_types = ', '.join(map(str, self.type.return_types))
         if len(self.type.return_types) > 1:
             return_types = f'({return_types})'
         return f'fn {self.name} ({params}) {return_types}'
