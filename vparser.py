@@ -13,11 +13,13 @@ class VAstTransformer(Transformer):
 
     def start(self, *args):
         # Find the module
-        module = None  # type: Optional[VModule]
+        module = None  # type: VModule
         for arg in args:
             if isinstance(arg, tuple) and arg[0] == 'module' and isinstance(arg[1], VModule):
                 assert module is None, "Multiple module declarations is not allowed"
                 module = arg[1]
+
+        # TODO: Probably need to make sure this is the module we searched for
 
         # Default module is main
         if module is None:

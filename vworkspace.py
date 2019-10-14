@@ -1,55 +1,29 @@
 from vparser import *
 import os
 
+
 class VWorkspace:
 
-    def __init__(self, module_folders=None):
+    def __init__(self, code_folders, module_folders=None):
         """
-        :type module_folders: List[str]
+        :type module_folders: List[str] or None
+        :type code_folders: List[str] or None
         """
+
+        # By default include vlib
         if module_folders is None:
             module_folders = ['./vlib/']
 
+        assert len(code_folders) > 0, "must have at least one code folder"
+
         self.module_folders = module_folders
+        self.code_folders = code_folders
         self.module_files = {}  # type: Dict[str, List[str]]
         self.modules = {}  # type: Dict[str, VModule]
         self.root_module = None  # type: VModule or None
 
-        self._scan_files()
-
         self.parser = VParser
         self.transfomer = VAstTransformer(self)
-
-    def _scan_files(self):
-        # In each module folder
-        for folder in self.module_folders:
-            # Iterate all the files
-            for path, dir, file in os.walk(folder):
-                for filename in file:
-                    # files with v extension
-                    if filename.lower().endswith(".v"):
-                        # read it
-                        with open(os.path.join(path, filename), 'r') as f:
-
-                            got = False
-
-                            # Search for module
-                            for line in f.readlines():
-                                # got module name, add it
-                                if line.strip().startswith('module'):
-                                    try:
-                                        module_name = line.strip().split(' ', 1)[1]
-                                        if module_name not in self.module_files:
-                                            self.module_files[module_name] = []
-                                        self.module_files[module_name].append(os.path.join(path, filename))
-                                        got = True
-                                        break
-                                    finally:
-                                        pass
-
-                            # If no module name found assume main
-                            if not got:
-                                self.module_files['main'].append(os.path.join(path, filename))
 
         # Handle the builtin module
         if 'builtin' not in self.module_files:
@@ -86,7 +60,6 @@ class VWorkspace:
         :returns: The loaded module
         """
         # Check if already has a reference to the module
-        assert name in self.module_files, f"module `{name}` does not exists in workspace"
         if name in self.modules:
             return self.modules[name]
 
@@ -104,11 +77,26 @@ class VWorkspace:
         if module.name != 'builtin':
             module.identifiers['builtin'] = self.load_module('builtin')
 
-        # Create parser and parse each file
-        for file in self.module_files[name]:
-            with open(file, 'r') as f:
-                parse_tree = self.parser.parse(f.read())
-                self.transfomer.transform(parse_tree)
+        # The main module is always in the code root, anything else would be inside a module
+        # so if we want to load the main module, we are gonna load all the files from the code
+        # directories
+        if module.name == 'main':
+            for folder in self.code_folders:
+                for file in os.listdir(folder):
+                    with open(os.path.join(folder, file), 'r') as f:
+                        parse_tree = self.parser.parse(f.read())
+                        self.transfomer.transform(parse_tree)
+
+        # For any other module simply search in the module folders for the
+        # path of the module and parse all files in there
+        else:
+            for folder in self.module_folders:
+                dir = os.path.join(folder, name.replace('.', '/'))
+                if os.path.exists(dir):
+                    for file in os.listdir(dir):
+                        with open(os.path.join(dir, file), 'r') as f:
+                            parse_tree = self.parser.parse(f.read())
+                            self.transfomer.transform(parse_tree)
 
         return module
 
