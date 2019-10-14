@@ -11,7 +11,8 @@ if __name__ == '__main__':
         # TODO: Proper shit
         workspace = VWorkspace(['./test'])
         module = workspace.load_module('main')
-        workspace.type_check()
+        if module is not None:
+            workspace.type_check()
 
-        interpreter = VInterpreter(module)
-        interpreter.eval_function('main')
+            interpreter = VInterpreter(module)
+            interpreter.eval_function('main')

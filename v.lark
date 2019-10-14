@@ -24,7 +24,7 @@ module_decl: "module" NAME ("." NAME)* _NEWLINE
 import_decl: "import" NAME ("." NAME)* _NEWLINE
 
 // Function declaration
-fn_decl: maybe_pub "fn" NAME "(" fn_params ")" fn_return "{" stmt_list "}" _NEWLINE
+fn_decl: maybe_pub "fn" NAME "(" fn_params ")" fn_return stmt_list _NEWLINE
 fn_params: [fn_param ("," fn_param)*]
 fn_param: NAME maybe_mut type_decl | NAME
 fn_return: [type_decl | "(" type_decl ("," type_decl)+ ")"]
@@ -45,10 +45,10 @@ embedded_struct_field: (maybe_mut NAME _NEWLINE)?
 
 ?stmt: "return" [_expr ("," _expr)*] _NEWLINE -> stmt_return
      | "assert" _expr _NEWLINE -> stmt_assert
-     | "for" NAME "in" _expr "{" stmt_list "}" -> stmt_foreach
-     | "for" NAME "," NAME "in" _expr "{" stmt_list "}" -> stmt_foreach_indexed
-     | "for" "{" stmt_list "}"-> stmt_forever
-     | "for" (maybe_var_decl|stmt_assignment) ";" _expr ";" (_expr | stmt_assignment) "{" stmt_list "}" -> stmt_for
+     | "for" NAME "in" _expr stmt_list -> stmt_foreach
+     | "for" NAME "," NAME "in" _expr stmt_list -> stmt_foreach_indexed
+     | "for" stmt_list-> stmt_forever
+     | "for" (maybe_var_decl|stmt_assignment) ";" _expr ";" (_expr | stmt_assignment) stmt_list -> stmt_for
      | "break" -> stmt_break
      | "continue" -> stmt_continue
      | stmt_var_decl _NEWLINE
@@ -63,14 +63,14 @@ stmt_var_decl: var_decl_vars ":=" _expr
 ?stmt_assignment: (ident|expr_member_access|expr_index) _op_assignment _expr -> stmt_assign
 !_op_assignment: ("+="|"-="|"*="|"/="|"%="|"<<="|">>="|"|="|"&="|"^="|"=")
 
-stmt_if: "if" _expr "{" stmt_list "}" (stmt_else | _NEWLINE)
-?stmt_else: "else" "{" stmt_list "}" _NEWLINE -> stmt_else
+stmt_if: "if" _expr stmt_list (stmt_else | _NEWLINE)
+?stmt_else: "else" stmt_list _NEWLINE -> stmt_else
           | "else" stmt_if -> stmt_else_if
 
 var_decl: maybe_mut NAME
 var_decl_vars: var_decl ("," var_decl)*
 
-stmt_list: stmt*
+stmt_list: "{" stmt* "}"
 
 ///////////////////////////////////////////////////
 // Expressions

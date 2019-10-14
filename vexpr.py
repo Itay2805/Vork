@@ -2,22 +2,33 @@ from vast import *
 from vtypes import default_value_for_type
 
 
-def default_assertion(xtype):
+class TypeCheckError(BaseException):
+
+    def __init__(self, report, msg, func):
+        self.report = report
+        self.msg = msg
+        self.func = func
+
+
+def default_assertion(xtype, report, func):
     """
     Run these in most expressions
 
     These make sure the type is not void nor multiple return
     """
-    assert not isinstance(xtype, list), "Expression can not take multiple return"
-    assert not isinstance(xtype, VVoidType), "Expression can not take void return"
+    if isinstance(xtype, list):
+        raise TypeCheckError(report, "Expression can not take multiple return", func)
+    if isinstance(xtype, VVoidType):
+        raise TypeCheckError(report, "Expression can not take void return", func)
 
 
 class ExprIntegerLiteral(Expr):
 
-    def __init__(self, num):
+    def __init__(self, num, report):
         """
         :type num: int
         """
+        super(ExprIntegerLiteral, self).__init__(report)
         self.num = num
 
     def resolve_type(self, module, scope):
@@ -39,10 +50,11 @@ class ExprIntegerLiteral(Expr):
 
 class ExprBoolLiteral(Expr):
 
-    def __init__(self, b):
+    def __init__(self, b, report):
         """
         :type b: bool
         """
+        super(ExprBoolLiteral, self).__init__(report)
         self.b = b
 
     def resolve_type(self, module, scope):
@@ -58,12 +70,13 @@ class ExprBoolLiteral(Expr):
 # TODO: We can probably just use the other struct literal
 class ExprStructLiteralNamed(Expr):
 
-    def __init__(self, ref, xtype, fields):
+    def __init__(self, ref, xtype, fields, report):
         """
         :type ref: bool
         :type xtype: VStructType
         :type fields: List[Tuple[str, Expr]]
         """
+        super(ExprStructLiteralNamed, self).__init__(report)
         self.ref = ref
         self.xtype = xtype
         self.fields = fields
@@ -74,7 +87,8 @@ class ExprStructLiteralNamed(Expr):
 
         fields = self.fields
 
-        assert len(self.fields) == len(self.xtype.fields), f"expected {len(self.xtype.fields)} fields in struct initialization, got {len(self.fields)}"
+        if len(self.fields) == len(self.xtype.fields):
+            raise TypeCheckError(self.report, f"expected {len(self.xtype.fields)} fields in struct initialization, got {len(self.fields)}", scope.get_function().name)
 
         # TODO: Embedded type
 
@@ -85,17 +99,19 @@ class ExprStructLiteralNamed(Expr):
 
             # Check the initialization type
             t = expr.resolve_type(module, scope)
-            assert t == struct_field.xtype, f"field `{struct_field.name}` requires `{struct_field.xtype}`, got `{t}` (at `{self}`)"
+            if t != struct_field.xtype:
+                raise TypeCheckError(expr.report, f"field `{struct_field.name}` requires `{struct_field.xtype}`, got `{t}`", scope.get_function().name)
 
             # If this is a private field only the same module can initialize it
             if struct_field.access_mod == ACCESS_PRIVATE or struct_field.access_mod == ACCESS_PRIVATE_MUT:
-                assert scope.get_function().get_module() == self.xtype.module, f"can not initialize field `{struct_field.name}` (set as private) (at `{self}`)"
+                if scope.get_function().get_module() != self.xtype.module:
+                    raise TypeCheckError(expr.report, f"can not initialize field `{struct_field.name}` (set as private)", scope.get_function().name)
 
         # return the struct type
         if self.ref:
-            return module.add_type(VRef(self.xtype))
+            return module.add_type(VRef(self.xtype), self.report)
 
-        return module.add_type(self.xtype)
+        return module.add_type(self.xtype, self.report)
 
     def is_mut(self, module, scope):
         return True
@@ -103,12 +119,13 @@ class ExprStructLiteralNamed(Expr):
 
 class ExprStructLiteral(Expr):
 
-    def __init__(self, ref, xtype, fields):
+    def __init__(self, ref, xtype, fields, report):
         """
         :type ref: bool
         :type xtype: VStructType
         :type fields: List[Expr]
         """
+        super(ExprStructLiteral, self).__init__(report)
         self.ref = ref
         self.xtype = xtype
         self.fields = fields
@@ -117,7 +134,8 @@ class ExprStructLiteral(Expr):
         # Don't forget to resolve it
         self.xtype = module.resolve_type(self.xtype)  # type: VStructType
 
-        assert len(self.fields) == len(self.xtype.fields), f"expected {len(self.xtype.fields)} fields in struct initialization, got {len(self.fields)}"
+        if len(self.fields) != len(self.xtype.fields):
+            raise TypeCheckError(self.report, f"expected {len(self.xtype.fields)} fields in struct initialization, got {len(self.fields)}", scope.get_function().name)
 
         # TODO: Embedded type
 
@@ -127,17 +145,19 @@ class ExprStructLiteral(Expr):
 
             # Check the initialization type
             t = expr.resolve_type(module, scope)
-            assert t == struct_field.xtype, f"field `{struct_field.name}` requires `{struct_field.xtype}`, got `{t}` (at `{self}`)"
+            if t != struct_field.xtype:
+                raise TypeCheckError(expr.report, f"field `{struct_field.name}` requires `{struct_field.xtype}`, got `{t}`", scope.get_function().name)
 
             # If this is a private field only the same module can initialize it
             if struct_field.access_mod == ACCESS_PRIVATE or struct_field.access_mod == ACCESS_PRIVATE_MUT:
-                assert scope.get_function().get_module() == self.xtype.module, f"can not initialize field `{struct_field.name}` (set as private) (at `{self}`)"
+                if scope.get_function().get_module() != self.xtype.module:
+                    raise TypeCheckError(f"can not initialize field `{struct_field.name}` (set as private)", scope.get_function().name)
 
         # return the struct type
         if self.ref:
-            return module.add_type(VRef(self.xtype))
+            return module.add_type(VRef(self.xtype), self.report)
 
-        return module.add_type(self.xtype)
+        return module.add_type(self.xtype, self.report)
 
     def is_mut(self, module, scope):
         return True
@@ -149,12 +169,14 @@ class ExprStructLiteral(Expr):
 
 class ExprIdentifierLiteral(Expr):
 
-    def __init__(self, name):
+    def __init__(self, name, report):
+        super(ExprIdentifierLiteral, self).__init__(report)
         self.name = name
 
     def resolve_type(self, module, scope):
         ident = scope.get_identifier(self.name)
-        assert ident is not None, f"Unknown identifier `{self.name}`"
+        if ident is None:
+            raise TypeCheckError(self.report, f"Unknown identifier `{self.name}`", scope.get_function().name)
 
         if isinstance(ident, VFunction) or isinstance(ident, VBuiltinFunction):
             return ident.type
@@ -218,12 +240,13 @@ class ExprBinary(Expr):
         '<':  ([VIntegerType, VBool], VBool()),
     }
 
-    def __init__(self, op, left_expr, right_expr):
+    def __init__(self, op, left_expr, right_expr, report):
         """
         :type op: str
         :type left_expr: Expr
         :type right_expr: Expr
         """
+        super(ExprBinary, self).__init__(report)
         self.op = op
         self.expr0 = left_expr
         self.expr1 = right_expr
@@ -232,12 +255,13 @@ class ExprBinary(Expr):
         t0 = self.expr0.resolve_type(module, scope)
         t1 = self.expr1.resolve_type(module, scope)
 
-        default_assertion(t0)
-        default_assertion(t1)
+        default_assertion(t0, self.expr0.report, scope.get_function().name)
+        default_assertion(t1, self.expr1.report, scope.get_function().name)
 
         # The types need to be the same
         # TODO: have this add casts or something
-        assert t0 == t1, f'Binary operators must have the same type on both sides (got `{t0}` and `{t1}`) (at `{self}`)'
+        if t0 != t1:
+            raise TypeCheckError(self.report, f'Binary operators must have the same type on both sides (got `{t0}` and `{t1}`)', scope.get_function().name)
 
         # Make sure we can use the operator on the given type
         good = False
@@ -257,7 +281,8 @@ class ExprBinary(Expr):
 
         # TODO: Check for operator overloading functions
 
-        assert good, f"Binary operator `{self.op}` can't be used on `{t0.__class__.__name__}`"
+        if not good:
+            raise TypeCheckError(self.report, f"Binary operator `{self.op}` can't be used on `{t0.__class__.__name__}`", scope.get_function().name)
 
         return got_type
 
@@ -273,11 +298,12 @@ class ExprFunctionCall(Expr):
     Will call the given function returning either a single value or multiple values
     """
 
-    def __init__(self, func_expr, arguments):
+    def __init__(self, func_expr, arguments, report):
         """
         :type func_expr: Expr
         :type arguments: List[Tuple(bool, Expr)]
         """
+        super(ExprFunctionCall, self).__init__(report)
         self.func_expr = func_expr
         self.arguments = arguments
 
@@ -349,11 +375,12 @@ class ExprMemberAccess(Expr):
     Will return the member of the given expression
     """
 
-    def __init__(self, expr, member_name):
+    def __init__(self, expr, member_name, report):
         """
         :type expr: Expr
         :type member_name: str
         """
+        super(ExprMemberAccess, self).__init__(report)
         self.expr = expr
         self.member_name = member_name
 
@@ -422,11 +449,12 @@ class ExprMemberAccess(Expr):
 
 class ExprIndex(Expr):
 
-    def __init__(self, src, at):
+    def __init__(self, src, at, report):
         """
         :type src: Expr
         :type at: Expr
         """
+        super(ExprIndex, self).__init__(report)
         self.src = src
         self.at = at
 
@@ -459,10 +487,11 @@ class ExprArrayLiteral(Expr):
     Return a new initialized array of the given expressions
     """
 
-    def __init__(self, exprs):
+    def __init__(self, exprs, report):
         """
         :type exprs: List[Expr]
         """
+        super(ExprArrayLiteral, self).__init__(report)
         self.exprs = exprs
 
     def resolve_type(self, module, scope):
@@ -474,10 +503,11 @@ class ExprArrayLiteral(Expr):
                 xtype = expr.resolve_type(module, scope)
             else:
                 xt = expr.resolve_type(module, scope)
-                assert xtype == xt, f"Array item at index `{i}` does not match type (expected `{xtype}`, got `{xt}`)"
+                if xtype != xt:
+                    raise TypeCheckError(expr.report, f"Array item at index `{i}` does not match type (expected `{xtype}`, got `{xt}`)", scope.get_function().name)
             i += 1
 
-        default_assertion(xtype)
+        default_assertion(xtype, expr.report, scope.get_function().name)
 
         return module.add_type(VArray(xtype))
 
@@ -494,17 +524,18 @@ class ExprArrayLiteralUninit(Expr):
     with the given amount of starting elements
     """
 
-    def __init__(self, length, xtype):
+    def __init__(self, length, xtype, report):
         """
         :type length: Expr
         :type xtype: VType
         """
+        super(ExprArrayLiteralUninit, self).__init__(report)
         self.length = length
         self.xtype = xtype
 
     def resolve_type(self, module, scope):
         self.xtype = module.resolve_type(self.xtype)
-        default_assertion(self.xtype)
+        default_assertion(self.xtype, self.report, scope.get_function().name)
         assert isinstance(self.length.resolve_type(module, scope), VIntegerType), "Length of array must be an integer"
         return module.add_type(VArray(self.xtype))
 
@@ -517,11 +548,12 @@ class ExprArrayLiteralUninit(Expr):
 
 class ExprUnary(Expr):
 
-    def __init__(self, op, expr):
+    def __init__(self, op, expr, report):
         """
         :type op: str
         :type expr: Expr
         """
+        super(ExprUnary, self).__init__(report)
         self.op = op
         self.expr = expr
 

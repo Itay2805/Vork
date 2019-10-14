@@ -8,6 +8,9 @@ from vtypes import *
 
 class Expr:
 
+    def __init__(self, report):
+        self.report = report
+
     def resolve_type(self, module, scope):
         """
         Will attempt to resovle the return
@@ -50,6 +53,9 @@ class StmtCompound(Stmt):
         self.parent = parent
         self.variables = {}  # type: Dict[str, VVariable]
         self.code = []  # type: List[Stmt]
+        self.reporter = None
+        self.line_start = 0
+        self.line_end = 0
 
     def fix_children(self):
         for c in self.code:
@@ -58,8 +64,12 @@ class StmtCompound(Stmt):
                 c.fix_children()
 
     def type_check(self, module, scope):
+        from vexpr import TypeCheckError
         for c in self.code:
-            c.type_check(module, self)
+            try:
+                c.type_check(module, self)
+            except TypeCheckError as e:
+                e.report('error', e.msg, e.func)
 
     def get_identifier(self, name):
         if name in self.variables:
@@ -117,15 +127,18 @@ class VModule:
         # None found
         return None
 
-    def add_function(self, name, func):
+    def add_function(self, name, func, report):
         """
         :type name: str
         :type func: VFunction
         """
         # TODO: I think function overloading is a thing, so we need to somehow take care of that
-        self.identifiers[name] = func
+        if name in self.identifiers:
+            report('error', f'redefinition of `{name}`')
+        else:
+            self.identifiers[name] = func
 
-    def add_type(self, xtype, name=None):
+    def add_type(self, xtype, report=None, name=None):
         """
         :type xtype: VType
         :type name: str
@@ -140,7 +153,11 @@ class VModule:
 
         # Add to identifiers if needed
         if name is not None:
-            self.identifiers[name] = xtype
+            assert report is not None
+            if name in self.identifiers:
+                report('error', f'redefinition of `{name}`')
+            else:
+                self.identifiers[name] = xtype
 
         return xtype
 
@@ -270,7 +287,8 @@ class VModule:
                         if isinstance(stmt, StmtReturn):
                             found = True
                             break
-                    assert found, f"No return statement in main scope of function `{ident.name}`"
+                    if not found:
+                        ident.root_scope.reporter.reporter(ident.root_scope.line_end, 1, ident.root_scope.line_end + 1)('error', 'control reaches end of non-void function', func=ident.name)
                 elif len(ident.root_scope.code) == 0 or not isinstance(ident.root_scope.code[-1], StmtReturn):
                     # Insert a return because this function has no return arguments and last item is not a return
                     ident.root_scope.code.append(StmtReturn([]))
@@ -279,7 +297,7 @@ class VModule:
         """
         :type func: VBuiltinFunction
         """
-        func.type = self.add_type(func.type)
+        func.type = self.add_type(func.type, lambda level, msg: print(f'<dynamic>: {level}: {msg}'))
         self.identifiers[func.name] = func
 
 
@@ -312,8 +330,9 @@ class VBuiltinFunction:
 
 class VFunction:
 
-    def __init__(self):
+    def __init__(self, report):
         self.name = ''
+        self.report = report
         self.pub = False
         self.type = VFunctionType()
         self.param_names = []  # type: List[str]
@@ -355,13 +374,14 @@ class VFunction:
 
 class VStruct:
 
-    def __init__(self, name, struct_type):
+    def __init__(self, name, struct_type, report):
         """
         :type name: str
         :type struct_type: VStructType
         """
         self.name = name
         self.type = struct_type
+        self.report = report
 
     def get_module(self):
         return self.type.module

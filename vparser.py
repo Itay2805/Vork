@@ -4,12 +4,51 @@ from vexpr import *
 from vstmt import *
 
 
+class ErrorReporter:
+
+    def __init__(self, filename):
+        self.filename = filename
+        with open(filename) as f:
+            self.code = f.readlines()
+
+    def reporter_from_meta(self, tree):
+        return self.reporter(tree.line, tree.column, tree.end_line, tree.end_column)
+
+    def reporter(self, line, col, end_line=None, end_col=None):
+
+        if end_line is None:
+            end_line = line
+
+        if end_col is None:
+            end_col = col
+
+        def report(level, msg, func=None):
+            code_line = self.code[line - 1][:-1]
+
+            # TODO: colorsss
+
+            if func is not None:
+                print(f'{self.filename}: In function `{func}`:')
+
+            print(f'{self.filename}:{line}:{col}: {level}: {msg}')
+            print(f'{code_line}')
+            my_end_col = end_col - 1
+            if end_line != line:
+                my_end_col = len(code_line) - 1
+            print(' ' * (col - 1) + '^' + '~' * (my_end_col - (col - 1) - 1))
+            print()
+
+        return report
+
+
 @v_args(inline=True)
 class VAstTransformer(Transformer):
 
-    def __init__(self, workspace):
+    def __init__(self, filename, workspace):
         super(VAstTransformer, self).__init__()
         self.workspace = workspace
+        self.filename = filename
+        self.reporter = ErrorReporter(filename)
         self._temp_counter = 0
 
     def get_temp(self):
@@ -21,7 +60,10 @@ class VAstTransformer(Transformer):
         module = None  # type: VModule
         for arg in args:
             if isinstance(arg, tuple) and arg[0] == 'module' and isinstance(arg[1], VModule):
-                assert module is None, "Multiple module declarations is not allowed"
+                # assert module is None, "Multiple module declarations is not allowed"
+                if module is not None:
+                    arg[2]('fatal', 'Multiple module declarations is not allowed')
+                    return False
                 module = arg[1]
 
         # TODO: Probably need to make sure this is the module we searched for
@@ -30,18 +72,20 @@ class VAstTransformer(Transformer):
         if module is None:
             module = self.workspace.load_module('main')
 
+        good = True
+
         # now we can load everything into the module scope
         for arg in args:
             # Add function to module
             if isinstance(arg, VFunction):
                 arg.type.module = module
-                module.add_function(arg.name, arg)
+                module.add_function(arg.name, arg, arg.report)
 
             # This is a type alias
             elif isinstance(arg, tuple) and isinstance(arg[0], str) and isinstance(arg[1], VType):
                 name = arg[0]  # type: str
                 xtype = arg[1]  # type: VType
-                module.add_type(xtype, name)
+                module.add_type(xtype, arg[2], name)
 
             # already handled the module decl
             elif isinstance(arg, tuple) and arg[0] == 'module' and isinstance(arg[1], VModule):
@@ -49,17 +93,21 @@ class VAstTransformer(Transformer):
 
             elif isinstance(arg, tuple) and arg[0] == 'import' and isinstance(arg[1], list):
                 mod = self.workspace.load_module('.'.join(arg[1]))
+                if mod is None:
+                    arg[2]('error', f'module `{".".join(arg[1])}` could not be imported')
+                    good = False
+                    continue
                 module.identifiers[arg[1][-1]] = mod
 
             elif isinstance(arg, VStruct):
                 arg.type.module = module
-                arg.type = module.add_type(arg.type, arg.name)
+                arg.type = module.add_type(arg.type, arg.report, arg.name)
 
             # Unknown module item
             else:
                 assert False, f"Unknown module item {arg}"
 
-        return module
+        return good
 
     ############################################################
     # Module scope
@@ -67,19 +115,24 @@ class VAstTransformer(Transformer):
 
     # Misc
 
-    def module_decl(self, name):
-        return 'module', self.workspace.load_module(name)
+    @v_args(meta=True)
+    def module_decl(self, children, meta):
+        return 'module', self.workspace.load_module(children[0]), self.reporter.reporter_from_meta(children[0])
 
     def type_alias_decl(self, name, xtype):
         return name, xtype
 
-    def import_decl(self, *path):
-        return 'import', list(map(str, path))
+    @v_args(tree=True)
+    def import_decl(self, tree):
+        return 'import', list(map(str, tree.children)), self.reporter.reporter(tree)
 
     # Function declaration
 
-    def fn_decl(self, pub, name, params, return_types, stmts):
-        func = VFunction()
+    @v_args(meta=True)
+    def fn_decl(self, children, meta):
+        pub, name, params, return_types, stmts = children
+
+        func = VFunction(self.reporter.reporter_from_meta(name))
         func.pub = pub
         func.name = str(name)
 
@@ -89,7 +142,10 @@ class VAstTransformer(Transformer):
         for rtype in return_types:
             func.add_return_type(rtype)
 
-        func.root_scope.code = stmts
+        func.root_scope.code = stmts[0]
+        func.root_scope.line_start = stmts[1]
+        func.root_scope.line_end = stmts[2]
+        func.root_scope.reporter = self.reporter
         func.root_scope.fix_children()
         return func
 
@@ -116,7 +172,9 @@ class VAstTransformer(Transformer):
 
     # Struct declaration
 
-    def struct_decl(self, name, embedded, fields):
+    @v_args(tree=True)
+    def struct_decl(self, tree):
+        name, embedded, fields = tree.children
 
         # Process the fields and their access mods
         f = []
@@ -128,7 +186,7 @@ class VAstTransformer(Transformer):
             elif isinstance(field, str):
                 ac = field
 
-        return VStruct(str(name), VStructType(embedded, f))
+        return VStruct(str(name), VStructType(embedded, f), self.reporter.reporter_from_meta(name))
 
     def struct_fields(self, *fields):
         return list(fields)
@@ -159,8 +217,9 @@ class VAstTransformer(Transformer):
         # TODO: Maybe convert into a builtin function call
         return StmtAssert(expr)
 
-    def stmt_var_decl(self, vars, expr):
-        return StmtDeclare(vars, expr)
+    @v_args(meta=True)
+    def stmt_var_decl(self, children, meta):
+        return StmtDeclare(children[0], children[1], self.reporter.reporter_from_meta(meta))
 
     def var_decl_vars(self, *args):
         return list(args)
@@ -212,30 +271,37 @@ class VAstTransformer(Transformer):
     # Expressions
     ############################################################
 
-    def expr_unary(self, op, expr):
-        return ExprUnary(op, expr)
+    @v_args(meta=True)
+    def expr_unary(self, children, meta):
+        return ExprUnary(children[0], children[1], self.reporter.reporter_from_meta(meta))
 
-    def expr_binary(self, expr0, op, expr1):
-        return ExprBinary(op, expr0, expr1)
+    @v_args(meta=True)
+    def expr_binary(self, children, meta):
+        return ExprBinary(children[0], children[1], children[2], self.reporter.reporter_from_meta(meta))
 
-    def expr_fn_call(self, fn_expr, *params):
+    @v_args(meta=True)
+    def expr_fn_call(self, children, meta):
+        params = children[1:]
         parms = []
         for i in range(len(params) // 2):
             parms.append((params[i * 2], params[i * 2 + 1]))
-        return ExprFunctionCall(fn_expr, parms)
+        return ExprFunctionCall(children[0], parms, self.reporter.reporter_from_meta(meta))
 
-    def expr_member_access(self, expr, member_name):
-        return ExprMemberAccess(expr, str(member_name))
+    @v_args(meta=True)
+    def expr_member_access(self, children, meta):
+        return ExprMemberAccess(children[0], str(children[1]), self.reporter.reporter_from_meta(meta))
 
-    def expr_index(self, src, at):
-        return ExprIndex(src, at)
+    @v_args(meta=True)
+    def expr_index(self, children, meta):
+        return ExprIndex(children[0], children[1], self.reporter.reporter_from_meta(meta))
 
     ############################################################
     # Literals
     ############################################################
 
-    def ident(self, name):
-        return ExprIdentifierLiteral(str(name))
+    @v_args(meta=True)
+    def ident(self, children, meta):
+        return ExprIdentifierLiteral(str(children[0]), self.reporter.reporter_from_meta(meta))
 
     def module_path_ident(self, *names):
         # TODO: Handle import stuff
@@ -245,31 +311,42 @@ class VAstTransformer(Transformer):
         else:
             return self.workspace.load_module('.'.join(names[-1:])), names[-1]
 
-    def number(self, num):
-        return ExprIntegerLiteral(int(num))
+    @v_args(meta=True)
+    def number(self, children, meta):
+        return ExprIntegerLiteral(int(children[0]), self.reporter.reporter_from_meta(meta))
 
-    def const_true(self):
-        return ExprBoolLiteral(True)
+    @v_args(meta=True)
+    def const_true(self, children, meta):
+        return ExprBoolLiteral(True, self.reporter.reporter_from_meta(meta))
 
-    def const_false(self):
-        return ExprBoolLiteral(False)
+    @v_args(meta=True)
+    def const_false(self, children, meta):
+        return ExprBoolLiteral(False, self.reporter.reporter_from_meta(meta))
 
-    def struct_literal(self, ref, name, *exprs):
+    @v_args(meta=True)
+    def struct_literal(self, children, meta):
+        ref, name = children[:2]
         # TODO: Need to extend this to support more than module local structs,
         # TODO: But also external module structs
-        return ExprStructLiteral(ref, VUnresolvedType(name[0], name[1]), list(exprs))
+        return ExprStructLiteral(ref, VUnresolvedType(name[0], name[1]), children[2:], self.reporter.reporter_from_meta(meta))
 
-    def struct_literal_named(self, ref, name, *elements):
-        return ExprStructLiteralNamed(ref, VUnresolvedType(name[0], name[1]), list(elements))
+    @v_args(meta=True)
+    def struct_literal_named(self, children, meta):
+        ref, name = children[:2]
+        elements = children[2:]
+        return ExprStructLiteralNamed(ref, VUnresolvedType(name[0], name[1]), list(elements), self.reporter.reporter_from_meta(meta))
 
-    def struct_literal_named_item(self, name, expr):
-        return str(name), expr
+    @v_args(meta=True)
+    def struct_literal_named_item(self, children, meta):
+        return str(children[0]), children[1]
 
-    def array_literal(self, *exprs):
-        return ExprArrayLiteral(list(exprs))
+    @v_args(meta=True)
+    def array_literal(self, children, meta):
+        return ExprArrayLiteral(list(children), self.reporter.reporter_from_meta(meta))
 
-    def array_literal_uninit(self, size, xtype):
-        return ExprArrayLiteralUninit(size, xtype)
+    @v_args(meta=True)
+    def array_literal_uninit(self, children, meta):
+        return ExprArrayLiteralUninit(children[0], children[1], self.reporter.reporter_from_meta(meta))
 
     ############################################################
     # Type declarations
@@ -309,13 +386,14 @@ class VAstTransformer(Transformer):
         else:
             return None
 
-    def stmt_list(self, *stmts):
+    @v_args(meta=True)
+    def stmt_list(self, children, meta):
         stmts_lst = []
         # TODO: From some reason sometimes stmt is inserted, will need to figure why
-        for stmt in stmts:
+        for stmt in children:
             if isinstance(stmt, Stmt):
                 stmts_lst.append(stmt)
-        return stmts_lst
+        return stmts_lst, meta.line, meta.end_line
 
 
-VParser = Lark.open('v.lark')
+VParser = Lark.open('v.lark', propagate_positions=True)

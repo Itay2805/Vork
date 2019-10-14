@@ -68,13 +68,14 @@ class StmtReturn(Stmt):
 
 class StmtDeclare(Stmt):
 
-    def __init__(self, vars, expr):
+    def __init__(self, vars, expr, report):
         """
         :type vars: List[Tuple[bool, str]]
         :type expr: Expr
         """
         self.vars = vars
         self.expr = expr
+        self.report = report
 
     def type_check(self, module, scope):
         tlist = self.expr.resolve_type(module, scope)
@@ -85,13 +86,15 @@ class StmtDeclare(Stmt):
             tlist = [tlist]
             mutlist = [mutlist]
 
-        assert len(self.vars) == len(tlist), f"Number of declarations does not match the number of return values (expected {len(tlist)}, got {len(self.vars)})"
+        if len(self.vars) != len(tlist):
+            self.report('error', f"Number of declarations does not match the number of return values (expected {len(tlist)}, got {len(self.vars)})", func=scope.get_function().name)
+            return False
 
         for i in range(len(self.vars)):
             var = self.vars[i]
             var_type = tlist[i]
             from_mut = mutlist[i]
-            default_assertion(var_type)
+            default_assertion(var_type, self.report, scope.get_function().name)
 
             to_mut = var[0]
             name = var[1]
