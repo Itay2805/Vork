@@ -398,7 +398,18 @@ class VAstTransformer(Transformer):
 
     @v_args(meta=True)
     def number(self, children, meta):
-        return ExprIntegerLiteral(int(children[0]), self.reporter.reporter_from_meta(meta))
+        num = children[0]
+
+        if num.startswith('0x'):
+            num = int(num[2:], 16)
+        elif num.startswith('0o'):
+            num = int(num[2:], 8)
+        elif num.startswith('0b'):
+            num = int(num[2:], 2)
+        else:
+            num = int(num)
+
+        return ExprIntegerLiteral(num, self.reporter.reporter_from_meta(meta))
 
     @v_args(meta=True)
     def const_true(self, children, meta):

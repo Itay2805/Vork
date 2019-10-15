@@ -178,7 +178,8 @@ struct_literal_named_item: NAME ":" _expr
 array_literal: "[" _expr ("," _expr)* "]"
 array_literal_uninit: "[" _expr "]" type_decl
 
-number: DEC_NUMBER
+number: ZERO | DEC_NUMBER | HEX_NUMBER | OCT_NUMBER | BIN_NUMBER
+float: FLOAT
 string: STRING
 ident: NAME
 module_path_ident: NAME ("." NAME)*
@@ -207,9 +208,17 @@ type_ident: NAME
 // basic stuff
 ///////////////////////////////////////////////////
 
+_NEWLINE: /(\r?\n)+/
+
 STRING : /[ubf]?r?("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
-NAME: /[a-zA-Z_][a-zA-Z0-9_]*/
-DEC_NUMBER: /0|[1-9]\d*/i
-_NEWLINE: /\n+/
+
+ZERO: /0/
+DEC_NUMBER: /[1-9][0-9]*/
+HEX_NUMBER: /0x[0-9da-fA-F]+/
+OCT_NUMBER: /0o[0-7]+/
+BIN_NUMBER: /0b[01]+/
+
+%import common.FLOAT -> FLOAT
+%import common.CNAME -> NAME
 
 %ignore /[\t \f]+/

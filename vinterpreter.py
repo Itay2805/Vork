@@ -10,8 +10,8 @@ def assert_integer_cast(type, value):
     :return:
     """
     if type.sign:
-        max_val = (2 ** (type.bits / 2)) - 1
-        min_val = (2 ** (type.bits / 2)) * -1
+        max_val = (2 ** type.bits / 2) - 1
+        min_val = (2 ** type.bits / 2) * -1
         assert min_val < value < max_val, f"can not cast from number `{value}` to `{type}` (min: {min_val}, max: {max_val})"
     else:
         max_val = (2 ** type.bits) - 1

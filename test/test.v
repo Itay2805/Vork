@@ -4,7 +4,7 @@ const Pi = 3
 
 const (
     A = B
-    B = 3
+    B = 0b101
 )
 
 fn range(len int) []int {
