@@ -410,7 +410,11 @@ class VAstTransformer(Transformer):
 
     @v_args(meta=True)
     def expr_binary(self, children, meta):
-        return ExprBinary(children[1], children[0], children[2], self.reporter.reporter_from_meta(meta))
+        left = children[0]
+        for i in range((len(children) - 1) // 2):
+            # TODO: Better error highlighting instead of the whole thing
+            left = ExprBinary(children[1 + i], left, children[1 + i + 1], self.reporter.reporter_from_meta(meta))
+        return left
 
     @v_args(meta=True)
     def expr_fn_call(self, children, meta):

@@ -62,6 +62,8 @@ class StmtCompound(Stmt):
         self.line_end = 0
 
     def fix_children(self):
+        assert self.parent is not None
+
         from vstmt import StmtIf, StmtFor, StmtForeach
         for c in self.code:
             if isinstance(c, StmtCompound):
@@ -70,6 +72,9 @@ class StmtCompound(Stmt):
             elif isinstance(c, StmtIf):
                 c.stmts_true.parent = self
                 c.stmts_true.fix_children()
+                if c.stmts_false is not None:
+                    c.stmts_false.parent = self
+                    c.stmts_false.fix_children()
             elif isinstance(c, StmtForeach) or isinstance(c, StmtFor):
                 c.stmts.parent = self
                 c.stmts.fix_children()
@@ -488,7 +493,7 @@ class VFunction:
                     found = True
                     break
             if not found:
-                self.root_scope.reporter.reporter(self.root_scope.line_end, 1, self.root_scope.line_end + 1)('error', 'control reaches end of non-void function', func=ident.name)
+                self.root_scope.reporter.reporter(self.root_scope.line_end, 1, self.root_scope.line_end + 1)('error', 'control reaches end of non-void function', func=self.name)
 
         elif len(self.root_scope.code) == 0 or not isinstance(self.root_scope.code[-1], StmtReturn):
             # Insert a return because this function has no return arguments and last item is not a return

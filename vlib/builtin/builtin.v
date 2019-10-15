@@ -1,7 +1,6 @@
 module builtin
 
-fn C.print(a int)
-
-pub fn print(a int) {
-    C.print(a)
+fn C.exit(code int)
+pub fn exit(code int) {
+    C.exit(code)
 }

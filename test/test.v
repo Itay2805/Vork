@@ -4,5 +4,4 @@ import bitfield
 
 fn main() {
     mut bf := bitfield.new(32)
-    print(bf.getbit(0))
 }

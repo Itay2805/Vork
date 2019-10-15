@@ -404,7 +404,7 @@ class ExprFunctionCall(Expr):
             return func
 
         else:
-            assert False, f"the type `{func}` is not callable"
+            raise TypeCheckError(self.func_expr.report, f"the type `{func}` is not callable", scope.get_function().name)
 
     def is_mut(self, module, scope):
         func = self.func_expr.resolve_type(module, scope)
@@ -470,6 +470,9 @@ class ExprMemberAccess(Expr):
 
                     return newt.type
 
+            else:
+                raise TypeCheckError(self.report, f'no such method', scope.get_function().name)
+
         elif isinstance(t, VArray):
             if self.member_name == 'len':
                 return module.add_type(VInt)
@@ -489,9 +492,9 @@ class ExprMemberAccess(Expr):
             return t[self.member_name].type
 
         else:
-            raise TypeCheckError(self.expr.report, f"Type `{t}` does not have any members", scope.get_function().name)
+            raise TypeCheckError(self.expr.report, f"Type `{t}` ({t.__class__}) does not have any members", scope.get_function().name)
 
-        raise TypeCheckError(self.expr.report, f"Type `{t}` does not have any members", scope.get_function().name)
+        raise TypeCheckError(self.expr.report, f"Type `{t}` ({t.__class__}) does not have any members", scope.get_function().name)
 
     def is_mut(self, module, scope):
         if not self.expr.is_mut(module, scope):
