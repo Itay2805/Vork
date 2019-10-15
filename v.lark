@@ -19,52 +19,50 @@ _module_item: fn_decl
             | import_decl
             | interop_fn_decl
             | const_decl
-            | _NEWLINE
 
 // Misc
-module_decl: "module" NAME ("." NAME)* _NEWLINE
-import_decl: "import" NAME ("." NAME)* _NEWLINE
+module_decl: "module" NAME ("." NAME)*
+import_decl: "import" NAME ("." NAME)*
 
 // Function declaration
-fn_decl: maybe_pub "fn" NAME "(" fn_params ")" fn_return stmt_list _NEWLINE
-interop_fn_decl: "fn" NAME "." NAME "(" fn_params ")" fn_return _NEWLINE
+fn_decl: maybe_pub "fn" NAME "(" fn_params ")" fn_return stmt_list
+interop_fn_decl: "fn" NAME "." NAME "(" fn_params ")" fn_return
 fn_params: [fn_param ("," fn_param)*]
 fn_param: NAME maybe_mut type_decl | NAME
 fn_return: [type_decl | "(" type_decl ("," type_decl)+ ")"]
 
 // Struct declaration
-struct_decl: maybe_pub "struct" NAME "{" _NEWLINE? embedded_struct_field struct_fields "}"
-struct_fields: (struct_field | struct_access_mod ":" _NEWLINE)*
-struct_field: NAME type_decl _NEWLINE
+struct_decl: maybe_pub "struct" NAME "{" embedded_struct_field struct_fields "}"
+struct_fields: (struct_field | struct_access_mod ":")*
+struct_field: NAME type_decl
 !struct_access_mod: "mut"
                   | "pub"
                   | "pub" "mut"
                   | "pub" "mut" "mut"
-embedded_struct_field: (maybe_mut NAME _NEWLINE)?
+embedded_struct_field: (maybe_mut NAME)?
 
 // const declaration
-const_decl: "const" "(" _NEWLINE (const_item)+ ")" _NEWLINE
+const_decl: "const" "(" (const_item)+ ")"
           | "const" const_item
-const_item: NAME "=" _expr _NEWLINE
+const_item: NAME "=" _expr
 
 
 ///////////////////////////////////////////////////
 // Statements
 ///////////////////////////////////////////////////
 
-?stmt: "return" [_expr ("," _expr)*] _NEWLINE -> stmt_return
-     | "assert" _expr _NEWLINE -> stmt_assert
+?stmt: "return" [_expr ("," _expr)*] -> stmt_return
+     | "assert" _expr -> stmt_assert
      | "for" NAME "in" _expr stmt_list -> stmt_foreach
      | "for" NAME "," NAME "in" _expr stmt_list -> stmt_foreach_indexed
      | "for" stmt_list-> stmt_forever
      | "for" (maybe_var_decl|stmt_assignment) ";" _expr ";" (_expr | stmt_assignment) stmt_list -> stmt_for
-     | "break" _NEWLINE -> stmt_break
-     | "continue" _NEWLINE -> stmt_continue
-     | stmt_var_decl _NEWLINE
-     | stmt_assignment _NEWLINE
+     | "break" -> stmt_break
+     | "continue" -> stmt_continue
+     | stmt_var_decl
+     | stmt_assignment
      | stmt_if
-     | _expr _NEWLINE -> stmt_expr
-     | _NEWLINE
+     | _expr -> stmt_expr
 
 stmt_var_decl: var_decl_vars ":=" _expr
 !maybe_var_decl: stmt_var_decl?
@@ -72,8 +70,8 @@ stmt_var_decl: var_decl_vars ":=" _expr
 ?stmt_assignment: (ident|expr_member_access|expr_index) _op_assignment _expr -> stmt_assign
 !_op_assignment: ("+="|"-="|"*="|"/="|"%="|"<<="|">>="|"|="|"&="|"^="|"=")
 
-stmt_if: "if" _expr stmt_list (stmt_else | _NEWLINE)
-?stmt_else: "else" stmt_list _NEWLINE -> stmt_else
+stmt_if: "if" _expr stmt_list (stmt_else |)
+?stmt_else: "else" stmt_list -> stmt_else
           | "else" stmt_if -> stmt_else_if
 
 var_decl: maybe_mut NAME
@@ -171,8 +169,8 @@ expr_index: _expr "[" _expr "]"
 // Struct literal types
 // MyStruct{1,2,3}
 // MyStruct{a: 1, b: 2, c: 3}
-struct_literal: maybe_ref module_path_ident "{" _NEWLINE? (_expr _NEWLINE? ("," _NEWLINE? _expr _NEWLINE? )*)? _NEWLINE? "}"
-struct_literal_named: maybe_ref module_path_ident "{" _NEWLINE? struct_literal_named_item (_NEWLINE struct_literal_named_item)* _NEWLINE? "}"
+struct_literal: maybe_ref module_path_ident "{" (_expr ("," _expr )*)? "}"
+struct_literal_named: maybe_ref module_path_ident "{" struct_literal_named_item (struct_literal_named_item)* "}"
 struct_literal_named_item: NAME ":" _expr
 
 // array literal
@@ -209,8 +207,6 @@ type_ident: NAME
 // basic stuff
 ///////////////////////////////////////////////////
 
-_NEWLINE: /(\r?\n)+/
-
 STRING : /[ubf]?r?("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 
 ZERO: /0/
@@ -222,4 +218,4 @@ BIN_NUMBER: /0b[01]+/
 %import common.FLOAT -> FLOAT
 %import common.CNAME -> NAME
 
-%ignore /[\t \f]+/
+%ignore /[\t \f\n\r]+/
