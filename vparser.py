@@ -51,11 +51,10 @@ class ErrorReporter:
 @v_args(inline=True)
 class VAstTransformer(Transformer):
 
-    def __init__(self, filename, workspace):
+    def __init__(self, reporter, workspace):
         super(VAstTransformer, self).__init__()
         self.workspace = workspace
-        self.filename = filename
-        self.reporter = ErrorReporter(filename)
+        self.reporter = reporter
         self._temp_counter = 0
 
     def get_temp(self):
@@ -120,7 +119,7 @@ class VAstTransformer(Transformer):
 
             elif isinstance(arg, VInteropFunction):
                 # TODO: check duplicates
-                module.identifiers['C'][arg.name] = arg
+                module.identifiers[arg.interop_type][arg.name] = arg
 
             elif isinstance(arg, VConstant):
                 if arg.name in module.identifiers:
@@ -133,6 +132,9 @@ class VAstTransformer(Transformer):
             elif isinstance(arg, list):
                 for a in arg:
                     to_check.append(a)
+
+            elif arg is None:
+                print("warning! got a None module item")
 
             # Unknown module item
             else:
@@ -161,12 +163,17 @@ class VAstTransformer(Transformer):
 
     @v_args(meta=True)
     def interop_fn_decl(self, children, meta):
-        func = VInteropFunction(str(children[0]))
 
-        for param in children[1]:
+        if children[0] != 'C':
+            self.reporter.reporter_from_meta(children[0])('error', f'Invalid interop `{children[0]}`')
+            return None
+
+        func = VInteropFunction(str(children[0]), str(children[1]))
+
+        for param in children[2]:
             func.add_param(param[2], param[1])
 
-        for rtype in children[2]:
+        for rtype in children[3]:
             func.add_return_type(rtype)
 
         return func
@@ -480,4 +487,4 @@ class VAstTransformer(Transformer):
         return stmts
 
 
-VParser = Lark.open('v.lark', propagate_positions=True)
+VParser = Lark.open('v.lark', parser='earley', lexer='standard', propagate_positions=True)

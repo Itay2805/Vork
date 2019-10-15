@@ -415,7 +415,8 @@ class VConstant:
 
 class VInteropFunction:
 
-    def __init__(self, name):
+    def __init__(self, type, name):
+        self.interop_type = type
         self.name = name
         self.type = VFunctionType()
 

@@ -27,7 +27,7 @@ import_decl: "import" NAME ("." NAME)* _NEWLINE
 
 // Function declaration
 fn_decl: maybe_pub "fn" NAME "(" fn_params ")" fn_return stmt_list _NEWLINE
-interop_fn_decl: "fn" "C" "." NAME "(" fn_params ")" fn_return _NEWLINE
+interop_fn_decl: "fn" NAME "." NAME "(" fn_params ")" fn_return _NEWLINE
 fn_params: [fn_param ("," fn_param)*]
 fn_param: NAME maybe_mut type_decl | NAME
 fn_return: [type_decl | "(" type_decl ("," type_decl)+ ")"]
@@ -208,7 +208,7 @@ type_ident: NAME
 ///////////////////////////////////////////////////
 
 STRING : /[ubf]?r?("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
-NAME: /[a-zA-Z_]\w*/
+NAME: /[a-zA-Z_][a-zA-Z0-9_]*/
 DEC_NUMBER: /0|[1-9]\d*/i
 _NEWLINE: /\n+/
 

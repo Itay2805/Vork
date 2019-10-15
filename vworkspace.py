@@ -28,6 +28,7 @@ class VWorkspace:
         if 'builtin' not in self.module_files:
             self.module_files['builtin'] = []
         b = self.load_module('builtin')
+        assert b is not None, "Failed to load builtin module!"
 
         # Some stuff are defined by the compiler, like
         # types, native functions and more, so we add them here
@@ -74,6 +75,54 @@ class VWorkspace:
         if module.name != 'builtin':
             module.identifiers['builtin'] = self.load_module('builtin')
 
+        def parse_folder(dir):
+            good = True
+            got_any = False
+            for file in os.listdir(dir):
+                file = os.path.join(dir, file)
+                with open(file, 'r') as f:
+                    reporter = ErrorReporter(file)
+                    got_any = True
+                    try:
+                        parse_tree = self.parser.parse(f.read())
+                        if not VAstTransformer(reporter, self).transform(parse_tree):
+                            good = False
+                    except UnexpectedToken as e:
+
+                        expected_transform = {
+                            'DEC_NUMBER': 'Decimal Number',
+                            'BANG': '!',
+                            'NAME': 'Identifier',
+                            'RBRACE': '}',
+                            'LBRACE': '{',
+                            'STAR': '*',
+                            'STRING': 'String Literal',
+                            'AMPERSAND': '&',
+                            'MINUS': '-',
+                            'TILDE': '~',
+                            'LPAR': '(',
+                            'RPAR': ')',
+
+                            '_NEWLINE': None,
+                        }
+
+                        reporter.reporter(e.line, e.column)('error', 'unexpected token')
+                        print('expected:')
+                        for expected in e.expected:
+                            if expected in expected_transform:
+                                expected = expected_transform[expected]
+                            elif expected.startswith('__ANON'):
+                                expected = None
+                            else:
+                                expected = f'{expected.lower()}'
+
+                            if expected is not None:
+                                print(f'\t* {expected}')
+                        print()
+                        good = False
+
+            return good, got_any
+
         good = True
         got_any = False
 
@@ -82,13 +131,11 @@ class VWorkspace:
         # directories
         if module.name == 'main':
             for folder in self.code_folders:
-                for file in os.listdir(folder):
-                    file = os.path.join(folder, file)
-                    with open(file, 'r') as f:
-                        parse_tree = self.parser.parse(f.read())
-                        got_any = True
-                        if not VAstTransformer(file, self).transform(parse_tree):
-                            good = False
+                res_good, res_got_any = parse_folder(folder)
+                if not res_good:
+                    good = False
+                if res_got_any:
+                    got_any = True
 
         # For any other module simply search in the module folders for the
         # path of the module and parse all files in there
@@ -96,13 +143,7 @@ class VWorkspace:
             for folder in self.module_folders:
                 dir = os.path.join(folder, name.replace('.', '/'))
                 if os.path.exists(dir):
-                    for file in os.listdir(dir):
-                        file = os.path.join(dir, file)
-                        with open(file, 'r') as f:
-                            parse_tree = self.parser.parse(f.read())
-                            got_any = True
-                            if not VAstTransformer(file, self).transform(parse_tree):
-                                good = False
+                    parse_folder(dir)
 
         if not got_any and name != 'builtin':
             del self.modules[name]
