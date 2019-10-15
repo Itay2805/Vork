@@ -324,9 +324,14 @@ class ExprFunctionCall(Expr):
                 to_type = func.param_types[i][0]
                 if from_type != to_type:
                     raise TypeCheckError(from_expr.report, f'function agument at `{i}` expected `{to_type}`, got `{from_type}`', scope.get_function().name)
-                assert to_mut == from_mut, f'function agument at `{i}` expected mut to be `{to_mut}`, got `{from_mut}`'
+
+                if to_mut != from_mut:
+                    raise TypeCheckError(from_expr.report, f'function agument at `{i}` expected mut to be `{to_mut}`, got `{from_mut}`', scope.get_function().name)
+
+                # Check if has the `mut` modifier on function call
                 if from_mut:
-                    assert from_mut == from_expr.is_mut(module, scope), f'tried to convert mut `{from_mut}`, got `{from_expr.is_mut(module, scope)}`'
+                    if from_mut != from_expr.is_mut(module, scope):
+                        raise TypeCheckError(from_expr.report, f'tried to convert mut `{from_mut}`, got `{from_expr.is_mut(module, scope)}`', scope.get_function().name)
 
             # If returns one type, return 1 type
             if len(func.return_types) == 1:

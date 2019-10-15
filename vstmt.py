@@ -109,8 +109,9 @@ class StmtDeclare(Stmt):
             # 1. both are not mut
             # 2. both are mut
             # 3. assign mut to none mut
-            if not from_mut and to_mut:
-                raise TypeCheckError(self.expr.report, "Can not assign immutable type to a mutable variable", scope.get_function().name)
+            # TODO: There seem to be no checking on this
+            # if not from_mut and to_mut:
+            #     raise TypeCheckError(self.expr.report, "Can not assign immutable type to a mutable variable", scope.get_function().name)
 
             scope.add_variable(name, to_mut, var_type)
 
@@ -196,7 +197,8 @@ class StmtAssign(Stmt):
         to_mut = self.dest.is_mut(module, scope)
         from_mut = self.expr.is_mut(module, scope)
 
-        if not (to_mut and from_mut):
+        # we don't care about the immutability of the source
+        if not to_mut:
             raise TypeCheckError(self.expr.report, f"can not assign to immutable variable", scope.get_function().name)
 
     def __str__(self):

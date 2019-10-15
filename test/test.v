@@ -19,16 +19,12 @@ fn gen_randoms(seed int) []int {
 	return randoms
 }
 
-fn to_mut(a int) int {
-    return a
-}
-
 fn main() {
 	mut randoms1 := gen_randoms(42)
 	mut randoms2 := gen_randoms(42)
 	assert randoms1.len == randoms2.len
 
-	mut len := to_mut(randoms1.len)
+	mut len := randoms1.len
 	for i in range(len) {
 		assert randoms1[i] == randoms2[i]
 	}
@@ -37,7 +33,7 @@ fn main() {
 	randoms2 = gen_randoms(256)
 	assert randoms1.len == randoms2.len
 
-	len = to_mut(randoms1.len)
+	len = randoms1.len
 	for i in range(len) {
 		assert randoms1[i] == randoms2[i]
 	}

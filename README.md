@@ -21,13 +21,15 @@ in v itself (for example, currently the js code gen of v has different v builtin
 kinda in the order I wanna work on stuff and kinda not
 
 * ranged for loops (0..x)
-* go statement
 * consts
 * enums
 * optionals
 * methods
 * strings
 * maps
+* go statement
+* match
+* expression if
 * references/pointers/whatever
 * figure postfix and prefix ++/--
 * interfaces
