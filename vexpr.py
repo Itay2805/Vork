@@ -193,6 +193,9 @@ class ExprIdentifierLiteral(Expr):
         elif isinstance(ident, dict):
             return ident
 
+        elif isinstance(ident, VConstant):
+            return ident.get_type()
+
         else:
             assert False, f"Unexpected identifier type {ident.__class__}"
 

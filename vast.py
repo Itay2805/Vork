@@ -298,6 +298,17 @@ class VModule:
                 for name in ident:
                     ident[name].type = self.resolve_type(ident[name].type)
 
+            elif isinstance(ident, VConstant):
+                from vexpr import TypeCheckError
+
+                try:
+                    ident.type_check(self, self._dummy_scope())
+                except TypeCheckError as e:
+                    e.report('error', e.msg)
+
+            else:
+                assert False
+
         # Now the module level should be fine, we can do type checking on the
         # statement level
         for name in self.identifiers:
@@ -343,6 +354,25 @@ class VModule:
         self.is_good = is_good
         return is_good
 
+    def _dummy_scope(self):
+        """
+        Dummy for type checking
+        """
+        module = self
+
+        class Dummy:
+
+            def get_identifier(self, name):
+                return module.get_identifier(name)
+
+            def get_function(self):
+                class DummyFunc:
+                    def __init__(self):
+                        self.name = None
+                return DummyFunc()
+
+        return Dummy()
+
 
 class VVariable:
 
@@ -358,6 +388,29 @@ class VVariable:
 
     def __str__(self):
         return f'{self.name} {self.type}'
+
+
+class VConstant:
+
+    def __init__(self, name, expr, report):
+        """
+        :type name: str
+        :type expr: Expr
+        """
+        self.name = name
+        self.expr = expr
+        self.report = report
+        self._type = None
+
+    def get_type(self):
+        assert self._type is not None
+        return self._type
+
+    def type_check(self, module, scope):
+        self._type = self.expr.resolve_type(module, scope)
+
+    def __str__(self):
+        return f'const {self.name} = {self.expr}'
 
 
 class VInteropFunction:
@@ -381,7 +434,7 @@ class VInteropFunction:
         self.type.add_return_type(type)
 
     def __str__(self):
-        params = ', '.join([f'{self.param_names[i]} {"mut " if self.type.param_types[i][1] else ""}{self.type.param_types[i][0]}' for i in range(len(self.param_names))])
+        params = ', '.join([f'{"mut " if param[1] else ""}{param[0]}' for param in self.type.param_types])
         return_types = ', '.join(map(str, self.type.return_types))
         if len(self.type.return_types) > 1:
             return_types = f'({return_types})'

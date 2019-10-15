@@ -104,7 +104,15 @@ class VInterpreter:
             return expr.num
 
         elif isinstance(expr, ExprIdentifierLiteral):
-            return self.call_stack[-1].get_variable(expr.name)
+            var = self.call_stack[-1].get_variable(expr.name)
+
+            # If got a constant eval it
+            if isinstance(var, VConstant):
+                res = self._eval_expression(var.expr)
+                self.module.identifiers[var.name] = res
+                var = res
+
+            return var
 
         elif isinstance(expr, ExprBinary):
             a = self._eval_expression(expr.left_expr)
@@ -142,7 +150,15 @@ class VInterpreter:
                 if expr.member_name == 'len':
                     return len(t)
             elif isinstance(t, VModule):
-                return t.get_identifier(expr.member_name)
+                var = t.get_identifier(expr.member_name)
+
+                # Eval const from member access
+                if isinstance(var, VConstant):
+                    res = self._eval_expression(var.expr)
+                    t.identifiers[var.name] = res
+                    var = res
+
+                return var
             else:
                 return t[expr.member_name]
 
@@ -376,6 +392,7 @@ class VInterpreter:
             if module.ran_init:
                 continue
 
+            # Run the init
             if 'init' in module and isinstance(module.identifiers['init'], VFunction):
                 self._eval_function(module.identifiers['init'])
 

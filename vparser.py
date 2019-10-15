@@ -81,8 +81,16 @@ class VAstTransformer(Transformer):
 
         good = True
 
-        # now we can load everything into the module scope
+        to_check = []
+
+        # Add all the args we got
         for arg in args:
+            to_check.append(arg)
+
+        # now we can load everything into the module scope
+        while len(to_check) > 0:
+            arg = to_check.pop()
+
             # Add function to module
             if isinstance(arg, VFunction):
                 arg.type.module = module
@@ -111,7 +119,20 @@ class VAstTransformer(Transformer):
                 arg.type = module.add_type(arg.type, arg.report, arg.name)
 
             elif isinstance(arg, VInteropFunction):
+                # TODO: check duplicates
                 module.identifiers['C'][arg.name] = arg
+
+            elif isinstance(arg, VConstant):
+                if arg.name in module.identifiers:
+                    arg.report('error', f'redefined `{arg.name}`')
+                    good = False
+                    continue
+                module.identifiers[arg.name] = arg
+
+            # List of stuff to add
+            elif isinstance(arg, list):
+                for a in arg:
+                    to_check.append(a)
 
             # Unknown module item
             else:
@@ -222,6 +243,16 @@ class VAstTransformer(Transformer):
         # TODO: return VUnresolvedType(xtype[0], xtype[1]) if len(xtype) > 0 else None
         return None
 
+    # consts
+
+    @v_args(meta=True)
+    def const_decl(self, children, meta):
+        return children
+
+    @v_args(meta=True)
+    def const_item(self, children, meta):
+        return VConstant(str(children[0]), children[1], self.reporter.reporter_from_meta(children[0]))
+
     ############################################################
     # Statements
     ############################################################
@@ -245,11 +276,13 @@ class VAstTransformer(Transformer):
     def stmt_var_decl(self, children, meta):
         return StmtDeclare(children[0], children[1], self.reporter.reporter_from_meta(meta))
 
-    def var_decl_vars(self, *args):
-        return list(args)
+    @v_args(meta=True)
+    def var_decl_vars(self, children, meta):
+        return list(children)
 
-    def var_decl(self, mut, name):
-        return mut, str(name)
+    @v_args(meta=True)
+    def var_decl(self, children, meta):
+        return children[0], str(children[1])
 
     @v_args(meta=True)
     def stmt_if(self, children, meta):
@@ -257,11 +290,13 @@ class VAstTransformer(Transformer):
         stmt_else = children[2:]
         return StmtIf(expr, stmt_list, stmt_else[0] if len(stmt_else) > 0 else None, self.reporter.reporter_from_meta(meta))
 
-    def stmt_else(self, stmt_list):
-        return stmt_list
+    @v_args(meta=True)
+    def stmt_else(self, children, meta):
+        return children[0]
 
-    def stmt_else_if(self, stmt_if):
-        return [stmt_if]
+    @v_args(meta=True)
+    def stmt_else_if(self, children, meta):
+        return [children[0]]
 
     @v_args(meta=True)
     def stmt_assign(self, children, meta):

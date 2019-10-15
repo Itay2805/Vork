@@ -18,6 +18,7 @@ _module_item: fn_decl
             | module_decl
             | import_decl
             | interop_fn_decl
+            | const_decl
             | _NEWLINE
 
 // Misc
@@ -40,6 +41,12 @@ struct_field: NAME type_decl _NEWLINE
                   | "pub" "mut"
                   | "pub" "mut" "mut"
 embedded_struct_field: (maybe_mut NAME _NEWLINE)?
+
+// const declaration
+const_decl: "const" "(" _NEWLINE (const_item)+ ")" _NEWLINE
+          | "const" const_item
+const_item: NAME "=" _expr _NEWLINE
+
 
 ///////////////////////////////////////////////////
 // Statements
