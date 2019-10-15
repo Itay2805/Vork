@@ -55,7 +55,27 @@ class VIntegerType(VType):
         return f"{'i' if self.sign else 'u'}{self.bits}"
 
 
+class VFloatType(VType):
+
+    def __init__(self, bits):
+        super(VFloatType, self).__init__()
+        self.bits = bits
+
+    def __eq__(self, other):
+        if isinstance(other, VFloatType):
+            return self.bits == other.bits
+        return False
+
+    def __str__(self):
+        return f'f{self.bits}'
+
+
 VInt = VIntegerType(32, True)
+VI64 = VIntegerType(64, True)
+VI128 = VIntegerType(128, True)
+
+VF32 = VFloatType(32)
+VF64 = VFloatType(64)
 
 #
 # Other types

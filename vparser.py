@@ -412,6 +412,10 @@ class VAstTransformer(Transformer):
         return ExprIntegerLiteral(num, self.reporter.reporter_from_meta(meta))
 
     @v_args(meta=True)
+    def float(self, children, meta):
+        return ExprFloatLiteral(float(children[0]), self.reporter.reporter_from_meta(meta))
+
+    @v_args(meta=True)
     def const_true(self, children, meta):
         return ExprBoolLiteral(True, self.reporter.reporter_from_meta(meta))
 

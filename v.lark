@@ -157,6 +157,7 @@ expr_index: _expr "[" _expr "]"
           | "true" -> const_true
           | string
           | number
+          | float
           | ident
           | struct_literal
           | struct_literal_named

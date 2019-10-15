@@ -32,14 +32,33 @@ class ExprIntegerLiteral(Expr):
         self.num = num
 
     def resolve_type(self, module, scope):
-        """
-        :type module: VModule
-        :type scope: StmtCompound
-        :rtype: VType
-        """
+        bits_needed = len(bin(self.num)[2:])
 
-        # Always return a type of int, to override it use the casts
-        return module.resolve_type(VInt)
+        # Always return a type of int
+        # Will return a bigger type if needed
+        if bits_needed >= 128:
+            raise TypeCheckError(self.report, 'Integer too big', scope.get_function().name)
+        elif bits_needed >= 64:
+            return VI128
+        else:
+            return VInt
+
+    def is_mut(self, module, scope):
+        return True
+
+    def __str__(self):
+        return str(self.num)
+
+
+class ExprFloatLiteral(Expr):
+
+    def __init__(self, num, report):
+        self.num = num
+        self.report = report
+
+    def resolve_type(self, module, scope):
+        # TODO: Figure which is needed, f32/f64
+        return VF64
 
     def is_mut(self, module, scope):
         return True
@@ -194,6 +213,7 @@ class ExprIdentifierLiteral(Expr):
             return ident
 
         elif isinstance(ident, VConstant):
+            ident.type_check(module, scope)
             return ident.get_type()
 
         else:
@@ -221,11 +241,11 @@ class ExprIdentifierLiteral(Expr):
 class ExprBinary(Expr):
 
     POSSIBLE_TYPES = {
-        '+': [VIntegerType],
-        '-': [VIntegerType],
-        '*': [VIntegerType],
-        '/': [VIntegerType],
-        '%': [VIntegerType],
+        '+': [VIntegerType, VFloatType],
+        '-': [VIntegerType, VFloatType],
+        '*': [VIntegerType, VFloatType],
+        '/': [VIntegerType, VFloatType],
+        '%': [VIntegerType, VFloatType],
 
         '&': [VIntegerType],
         '|': [VIntegerType],
@@ -237,12 +257,12 @@ class ExprBinary(Expr):
         '>>': [VIntegerType],
         '<<': [VIntegerType],
 
-        '==': ([VIntegerType, VBool], VBool()),
-        '!=': ([VIntegerType, VBool], VBool()),
-        '>=': ([VIntegerType, VBool], VBool()),
-        '>':  ([VIntegerType, VBool], VBool()),
-        '<=': ([VIntegerType, VBool], VBool()),
-        '<':  ([VIntegerType, VBool], VBool()),
+        '==': ([VIntegerType, VBool, VFloatType], VBool()),
+        '!=': ([VIntegerType, VBool, VFloatType], VBool()),
+        '>=': ([VIntegerType, VBool, VFloatType], VBool()),
+        '>':  ([VIntegerType, VBool, VFloatType], VBool()),
+        '<=': ([VIntegerType, VBool, VFloatType], VBool()),
+        '<':  ([VIntegerType, VBool, VFloatType], VBool()),
     }
 
     def __init__(self, op, left_expr, right_expr, report):
@@ -351,9 +371,20 @@ class ExprFunctionCall(Expr):
 
         # int casts
         elif isinstance(func, VIntegerType):
-            assert len(self.arguments) == 1, f"expected 1 argument for cast, got {len(self.arguments)}"
+            if len(self.arguments) != 1:
+                raise TypeCheckError(self.report, f"expected 1 argument for cast, got {len(self.arguments)}", scope.get_function().name)
             t = self.arguments[0][1].resolve_type(module, scope)
-            assert isinstance(t, VIntegerType), f"Integer cast requires an integer (got `{t}`)"
+            if not isinstance(t, VIntegerType):
+                raise TypeCheckError(self.arguments[0][1].report, f"Integer cast requires an integer (got `{t}`)", scope.get_function().name)
+            return func
+
+        # float casts
+        elif isinstance(func, VFloatType):
+            if len(self.arguments) != 1:
+                raise TypeCheckError(self.report, f"expected 1 argument for cast, got {len(self.arguments)}", scope.get_function().name)
+            t = self.arguments[0][1].resolve_type(module, scope)
+            if not isinstance(t, VFloatType):
+                raise TypeCheckError(self.arguments[0][1].report, f"Float cast requires an float (got `{t}`)", scope.get_function().name)
             return func
 
         else:
@@ -371,7 +402,7 @@ class ExprFunctionCall(Expr):
             else:
                 return False
 
-        elif isinstance(func, VIntegerType):
+        elif isinstance(func, VIntegerType) or isinstance(func, VFloatType):
             return True
 
         assert False
@@ -582,8 +613,8 @@ class ExprUnary(Expr):
             if not isinstance(t, VBool):
                 raise TypeCheckError(self.expr.report, f"unary op `{self.op}` only supports bool (got `{t}`)", scope.get_function().name)
         else:
-            if not isinstance(t, VIntegerType):
-                raise TypeCheckError(self.expr.report, f"unary op `{self.op}` only supports integer types (got `{t}`)", scope.get_function().name)
+            if not isinstance(t, VIntegerType) and not isinstance(t, VFloatType):
+                raise TypeCheckError(self.expr.report, f"unary op `{self.op}` only supports integer and float types types (got `{t}`)", scope.get_function().name)
         return t
 
     def is_mut(self, module, scope):

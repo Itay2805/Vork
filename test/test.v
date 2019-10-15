@@ -1,23 +1,7 @@
 module main
 
-const Pi = 3
-
-const (
-    A = B
-    B = 0b101
-)
-
-fn range(len int) []int {
-    mut arr := [len]int
-    for i := 0; i < len; i += 1 {
-        arr[i] = i
-    }
-    return arr
-}
+const Pi = 3.14
 
 fn main() {
-    a := [A,B]
-    for i in a {
-        print(i)
-    }
+    assert Pi == 3.14
 }

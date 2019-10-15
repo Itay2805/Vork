@@ -99,8 +99,9 @@ class VInterpreter:
             return expr.b
 
         elif isinstance(expr, ExprIntegerLiteral):
-            # TODO: Need a way to call this with bigger numbers
-            assert_integer_cast(VInt, expr.num)
+            return expr.num
+
+        elif isinstance(expr, ExprFloatLiteral):
             return expr.num
 
         elif isinstance(expr, ExprIdentifierLiteral):
@@ -174,7 +175,7 @@ class VInterpreter:
             return src[index]
 
         else:
-            assert False, f"Unknown expression {expr}"
+            assert False, f"Unknown expression `{expr}` ({expr.__class__})"
 
     def _eval_statement(self, stmt):
         """
