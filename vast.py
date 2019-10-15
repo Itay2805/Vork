@@ -240,18 +240,19 @@ class VModule:
             if xtype.module is None:
                 xtype.module = self
 
+            # Resolve the actual embedded type
             if xtype.embedded is not None:
                 xtype.embedded = xtype.module.resolve_type(xtype.embedded)
 
+            # Resole the fields of the struct
             for i in range(len(xtype.fields)):
                 field = xtype.fields[i]
                 field.xtype = xtype.module.resolve_type(field.xtype)
 
-            # TODO: Check embedded field
-            # Make sure all the types seem good
-            # if xtype.embedded is not None:
-            #     for field in xtype.fields:
-            #         assert xtype.embedded.get_field(field[0]) is None, f"Field `{field[0]}` in type `{xtype}` shadows field in embedded type `{xtype.embedded}`"
+            # Resolve the methods of the struct
+            for name in xtype.methods:
+                method = xtype.methods[name]
+                method.type = xtype.module.resolve_type(method.type)
 
         # Unknown types will get an assert so we don't forget stuff
         else:
@@ -287,6 +288,8 @@ class VModule:
             elif isinstance(ident, VType):
                 self.identifiers[name] = self.resolve_type(ident)
 
+            # TODO: Why are we not using VStruct?
+
             # For imported modules do type checking
             elif isinstance(ident, VModule):
                 if not ident.type_checking():
@@ -314,42 +317,19 @@ class VModule:
         for name in self.identifiers:
             ident = self.identifiers[name]
             if isinstance(ident, VFunction):
-                # Do normal type checking
-                if not ident.root_scope.type_check(self, ident.root_scope):
+                if not ident.type_check(self):
                     is_good = False
-                    continue
-
-                # init functions must be fn() and can not be public
-                if ident.name == 'init':
-                    if len(ident.type.return_types) != 0:
-                        ident.report('error', 'init function cannot have return types')
-                        is_good = False
-                    elif len(ident.type.param_types) != 0:
-                        ident.report('error', 'init function cannot have param types')
-                        is_good = False
-                    elif ident.pub:
-                        ident.report('error', 'init function cannot be public')
-                        is_good = False
-
-
-                # TODO: A bit more advanced return checks
-
-                # Check return types
-                if len(ident.type.return_types) > 0:
-                    found = False
-                    for stmt in ident.root_scope.code:
-                        if isinstance(stmt, StmtReturn):
-                            found = True
-                            break
-                    if not found:
-                        ident.root_scope.reporter.reporter(ident.root_scope.line_end, 1, ident.root_scope.line_end + 1)('error', 'control reaches end of non-void function', func=ident.name)
-                elif len(ident.root_scope.code) == 0 or not isinstance(ident.root_scope.code[-1], StmtReturn):
-                    # Insert a return because this function has no return arguments and last item is not a return
-                    ident.root_scope.code.append(StmtReturn([], None))
 
             elif isinstance(ident, VModule):
                 if not ident.type_checking():
                     is_good = False
+
+            # TODO: Why are we not using VStruct
+
+            elif isinstance(ident, VStructType):
+                for method in ident.methods:
+                    if not ident.methods[method].type_check(self):
+                        is_good = False
 
         self.is_good = is_good
         return is_good
@@ -459,7 +439,7 @@ class VFunction:
     def get_identifier(self, name):
         if name in self.param_names:
             index = self.param_names.index(name)
-            return VVariable(self.param_names[index], self.type.param_types[index])
+            return VVariable(self.type.param_types[index][1], self.param_names[index], self.type.param_types[index][0])
         return self.get_module().get_identifier(name)
 
     def add_param(self, name, mut, xtype):
@@ -477,6 +457,44 @@ class VFunction:
         :type type: VType
         """
         self.type.add_return_type(type)
+
+    def type_check(self, module):
+        from vstmt import StmtReturn
+
+        # Do normal type checking
+        if not self.root_scope.type_check(module, self.root_scope):
+            return False
+
+        # init functions must be fn() and can not be public
+        if self.name == 'init':
+            if len(self.type.return_types) != 0:
+                self.report('error', 'init function cannot have return types')
+                return False
+            elif len(self.type.param_types) != 0:
+                self.report('error', 'init function cannot have param types')
+                return False
+            elif self.pub:
+                self.report('error', 'init function cannot be public')
+                return False
+
+        # TODO: A bit more advanced return checks
+
+        # Check return types
+        if len(self.type.return_types) > 0:
+
+            found = False
+            for stmt in self.root_scope.code:
+                if isinstance(stmt, StmtReturn):
+                    found = True
+                    break
+            if not found:
+                self.root_scope.reporter.reporter(self.root_scope.line_end, 1, self.root_scope.line_end + 1)('error', 'control reaches end of non-void function', func=ident.name)
+
+        elif len(self.root_scope.code) == 0 or not isinstance(self.root_scope.code[-1], StmtReturn):
+            # Insert a return because this function has no return arguments and last item is not a return
+            self.root_scope.code.append(StmtReturn([], None))
+
+        return True
 
     def __str__(self):
         params = ', '.join([f'{self.param_names[i]} {"mut " if self.type.param_types[i][1] else ""}{self.type.param_types[i][0]}' for i in range(len(self.param_names))])

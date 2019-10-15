@@ -86,6 +86,8 @@ class VAstTransformer(Transformer):
         for arg in args:
             to_check.append(arg)
 
+        methods_to_add = {}  # type: Dict[str, List[VFunction]]
+
         # now we can load everything into the module scope
         while len(to_check) > 0:
             arg = to_check.pop()
@@ -93,7 +95,20 @@ class VAstTransformer(Transformer):
             # Add function to module
             if isinstance(arg, VFunction):
                 arg.type.module = module
-                module.add_function(arg.name, arg, arg.report)
+                if arg.type.method:
+                    # We will attempt to add now and if not found add it later when
+                    # the struct is declared
+                    strct_name = arg.type.param_types[0][0].type_name
+                    if strct_name in module.identifiers:
+                        strct = module.identifiers[strct_name]
+                        assert isinstance(strct, VStruct)
+                        strct.type.add_method(arg)
+                    else:
+                        if strct_name not in methods_to_add:
+                            methods_to_add[strct_name] = []
+                        methods_to_add[strct_name].append(arg)
+                else:
+                    module.add_function(arg.name, arg, arg.report)
 
             # This is a type alias
             elif isinstance(arg, tuple) and isinstance(arg[0], str) and isinstance(arg[1], VType):
@@ -107,7 +122,13 @@ class VAstTransformer(Transformer):
 
             elif isinstance(arg, tuple) and arg[0] == 'import' and isinstance(arg[1], list):
                 mod = self.workspace.load_module('.'.join(arg[1]))
-                if mod is None:
+
+                if isinstance(mod, str):
+                    arg[2]('error', mod)
+                    good = False
+                    continue
+
+                elif mod is None:
                     arg[2]('error', f'module `{".".join(arg[1])}` could not be imported')
                     good = False
                     continue
@@ -115,6 +136,9 @@ class VAstTransformer(Transformer):
 
             elif isinstance(arg, VStruct):
                 arg.type.module = module
+                if arg.name in methods_to_add:
+                    for method in methods_to_add[arg.name]:
+                        arg.type.add_method(method)
                 arg.type = module.add_type(arg.type, arg.report, arg.name)
 
             elif isinstance(arg, VInteropFunction):
@@ -198,6 +222,29 @@ class VAstTransformer(Transformer):
 
         return func
 
+    @v_args(meta=True)
+    def method_decl(self, children, meta):
+        pub, instance_name, instance_mut, instance_type, fn_name, params, return_types, stmts = children
+
+        func = VFunction(self.reporter.reporter_from_meta(meta))
+        func.pub = pub
+        func.name = str(fn_name)
+
+        func.add_param(str(instance_name), instance_mut, instance_type)
+        for param in params:
+            func.add_param(param[0], param[2], param[1])
+
+        for rtype in return_types:
+            func.add_return_type(rtype)
+
+        func.type.method = True
+
+        func.root_scope = stmts
+        func.root_scope.parent = func
+        func.root_scope.fix_children()
+
+        return func
+
     def fn_params(self, *params):
         params = list(params)
         last_type = None
@@ -211,10 +258,11 @@ class VAstTransformer(Transformer):
         return params
 
     def fn_param(self, *args):
+        name, mut, type = args
         if len(args) == 1:
-            return str(args[0]), None, False
+            return str(name), None, False
         else:
-            return str(args[0]), args[2], args[1]
+            return str(name), type, mut
 
     def fn_return(self, *return_types):
         return list(return_types)
@@ -223,7 +271,7 @@ class VAstTransformer(Transformer):
 
     @v_args(tree=True)
     def struct_decl(self, tree):
-        name, embedded, fields = tree.children
+        pub, name, embedded, fields = tree.children
 
         # Process the fields and their access mods
         f = []
@@ -235,7 +283,7 @@ class VAstTransformer(Transformer):
             elif isinstance(field, str):
                 ac = field
 
-        return VStruct(str(name), VStructType(embedded, f), self.reporter.reporter_from_meta(name))
+        return VStruct(pub, str(name), VStructType(embedded, f), self.reporter.reporter_from_meta(name))
 
     def struct_fields(self, *fields):
         return list(fields)

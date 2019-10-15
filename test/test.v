@@ -1,7 +1,8 @@
 module main
 
-const Pi = 3.14
+import bitfield
 
 fn main() {
-    assert Pi == 3.14
+    mut bf := bitfield.new(32)
+    print(bf.getbit(0))
 }

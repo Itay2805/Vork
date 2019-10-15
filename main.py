@@ -1,6 +1,7 @@
 from vworkspace import VWorkspace
 from vinterpreter import VInterpreter
 from vparser import VParser
+from vast import VModule
 
 import sys
 
@@ -13,7 +14,7 @@ if __name__ == '__main__':
         # TODO: Proper shit
         workspace = VWorkspace(['./test'])
         module = workspace.load_module('main')
-        if module is not None:
+        if module is not None and isinstance(module, VModule):
             if workspace.type_check():
                 interpreter = VInterpreter(module)
                 interpreter.eval_function('main')

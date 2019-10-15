@@ -106,7 +106,7 @@ class ExprStructLiteralNamed(Expr):
 
         fields = self.fields
 
-        if len(self.fields) == len(self.xtype.fields):
+        if len(self.fields) != len(self.xtype.fields):
             raise TypeCheckError(self.report, f"expected {len(self.xtype.fields)} fields in struct initialization, got {len(self.fields)}", scope.get_function().name)
 
         # TODO: Embedded type
@@ -338,17 +338,33 @@ class ExprFunctionCall(Expr):
 
         # Nomral functions
         if isinstance(func, VFunctionType):
-            assert len(self.arguments) == len(func.param_types), f"expected {len(func.param_types)} arguments, got {len(self.arguments)}"
-            for i in range(len(self.arguments)):
-                from_mut = self.arguments[i][0]
-                from_expr = self.arguments[i][1]
+            args = self.arguments
+
+            # If a method, add the expression of the caller to the first argument
+            if func.method:
+
+                # If got from member access then take the expression
+                if isinstance(self.func_expr, ExprMemberAccess):
+                    args.insert(0, (self.func_expr.expr.is_mut(module, scope), self.func_expr.expr))
+
+                # Anything else should not be a valid option
+                else:
+                    assert False
+
+            if len(args) != len(func.param_types):
+                raise TypeCheckError(self.report, f"expected {len(func.param_types)} arguments, got {len(self.arguments)}", scope.get_function().name)
+
+            for i in range(len(args)):
+                from_mut = args[i][0]
+                from_expr = args[i][1]
                 from_type = from_expr.resolve_type(module, scope)
                 to_mut = func.param_types[i][1]
                 to_type = func.param_types[i][0]
+
                 if from_type != to_type:
                     raise TypeCheckError(from_expr.report, f'function agument at `{i}` expected `{to_type}`, got `{from_type}`', scope.get_function().name)
 
-                if to_mut != from_mut:
+                if to_mut and not from_mut:
                     raise TypeCheckError(from_expr.report, f'function agument at `{i}` expected mut to be `{to_mut}`, got `{from_mut}`', scope.get_function().name)
 
                 # Check if has the `mut` modifier on function call
@@ -434,14 +450,25 @@ class ExprMemberAccess(Expr):
         if isinstance(t, VStructType):
             newt = t.get_field(self.member_name)
             if newt is not None:
-                ac = newt.access_mod
 
-                # Check if visible
-                if ac == ACCESS_PRIVATE or ac == ACCESS_PRIVATE_MUT:
+                # Got a field
+                if isinstance(newt, VStructField):
+                    ac = newt.access_mod
+
+                    # Check if visible
+                    if ac == ACCESS_PRIVATE or ac == ACCESS_PRIVATE_MUT:
+                        if t.module != scope.get_function().get_module():
+                            raise TypeCheckError(self.report, f"field is not public", scope.get_function().name)
+
+                    return newt.xtype
+
+                # Got a method
+                elif isinstance(newt, VFunction):
                     if t.module != scope.get_function().get_module():
-                        raise TypeCheckError(self.report, f"field is not public", scope.get_function().name)
+                        if not newt.pub:
+                            raise TypeCheckError(self.report, f"method is not public", scope.get_function().name)
 
-                return newt.xtype
+                    return newt.type
 
         elif isinstance(t, VArray):
             if self.member_name == 'len':
@@ -474,19 +501,21 @@ class ExprMemberAccess(Expr):
 
         if isinstance(t, VStructType):
             field = t.get_field(self.member_name)
-            ac = field.access_mod
 
-            # Never mut
-            if ac == ACCESS_PRIVATE or ac == ACCESS_PUBLIC:
-                return False
+            if isinstance(field, VStructField):
+                ac = field.access_mod
 
-            # Only mut in same module
-            elif ac == ACCESS_PRIVATE_MUT or ACCESS_PUBLIC_PROTECTED_MUT:
-                return scope.get_function().get_module() == t.module
+                # Never mut
+                if ac == ACCESS_PRIVATE or ac == ACCESS_PUBLIC:
+                    return False
 
-            # Always mut
-            elif ac == ACCESS_PUBLIC_MUT:
-                return True
+                # Only mut in same module
+                elif ac == ACCESS_PRIVATE_MUT or ACCESS_PUBLIC_PROTECTED_MUT:
+                    return scope.get_function().get_module() == t.module
+
+                # Always mut
+                elif ac == ACCESS_PUBLIC_MUT:
+                    return True
 
         return False
 

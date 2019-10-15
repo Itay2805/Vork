@@ -12,10 +12,10 @@ def assert_integer_cast(type, value):
     if type.sign:
         max_val = (2 ** type.bits / 2) - 1
         min_val = (2 ** type.bits / 2) * -1
-        assert min_val < value < max_val, f"can not cast from number `{value}` to `{type}` (min: {min_val}, max: {max_val})"
+        assert min_val <= value <= max_val, f"can not cast from number `{value}` to `{type}` (min: {min_val}, max: {max_val})"
     else:
         max_val = (2 ** type.bits) - 1
-        assert 0 < value < max_val, f"can not cast from number `{value}` to `{type}` (min: 0, max: {max_val})"
+        assert 0 <= value <= max_val, f"can not cast from number `{value}` to `{type}` (min: 0, max: {max_val})"
 
 
 class CallStackFrame:
@@ -36,6 +36,7 @@ class CallStackFrame:
         self.scope_stack.pop()
 
     def set_variable(self, name, value):
+        assert value is not None
         self.scope_stack[-1][name] = value
 
     def get_variable(self, name):
@@ -71,6 +72,10 @@ class VInterpreter:
             strct = {}
 
         # TODO: Embedded type
+
+        # Add the methods
+        for name in expr.xtype.methods:
+            strct[name] = expr.xtype.methods[name]
 
         # Do none embedded types
         if isinstance(expr, ExprStructLiteral):
@@ -133,10 +138,14 @@ class VInterpreter:
                 return eval(f'{expr.op}{self._eval_expression(expr.expr)}')
 
         elif isinstance(expr, ExprFunctionCall):
-            ret = self._eval_function(self._eval_expression(expr.func_expr), [self._eval_expression(e[1]) for e in expr.arguments])
+            arguments = [self._eval_expression(e[1]) for e in expr.arguments]
+            func = self._eval_expression(expr.func_expr)
+            ret = self._eval_function(func, arguments)
             if isinstance(ret, tuple):
                 if len(ret) == 1:
                     return ret[0]
+                elif len(ret) == 0:
+                    return None
                 else:
                     return ret
             else:

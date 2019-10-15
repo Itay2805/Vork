@@ -47,7 +47,7 @@ class VWorkspace:
         # Make sure we ignore the builtin as a root module
         self.root_module = None
 
-    def load_module(self, name: str) -> Optional[VModule]:
+    def load_module(self, name: str):
         """
         Load a module
 
@@ -143,14 +143,18 @@ class VWorkspace:
             for folder in self.module_folders:
                 dir = os.path.join(folder, name.replace('.', '/'))
                 if os.path.exists(dir):
-                    parse_folder(dir)
+                    res_good, res_got_any = parse_folder(dir)
+                    if not res_good:
+                        good = False
+                    if res_got_any:
+                        got_any = True
 
         if not got_any and name != 'builtin':
             del self.modules[name]
-            return None
+            return f'could not find module `{name}`'
 
         if not good:
-            return None
+            return f'error while loading module `{name}`'
 
         return module
 

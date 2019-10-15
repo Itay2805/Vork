@@ -166,6 +166,7 @@ class VFunctionType(VType):
 
     def __init__(self):
         super(VFunctionType, self).__init__()
+        self.method = False
         self.param_types = []  # type: List[Tuple[VType, bool]]
         self.return_types = []  # type: List[VType]
 
@@ -236,6 +237,7 @@ class VStructType(VType):
         super(VStructType, self).__init__()
         self.embedded = embedded
         self.fields = fields
+        self.methods = {}
 
     def get_field(self, name):
         # Check in our fields
@@ -243,11 +245,22 @@ class VStructType(VType):
             if field.name == name:
                 return field
 
+        # Check in our methods
+        if name in self.methods:
+            return self.methods[name]
+
         # Check embedded type
         if self.embedded is not None:
             return self.embedded.get_field(name)
 
         return None
+
+    def add_method(self, func):
+        if self.get_field(func.name) is not None:
+            func.report('error', f'redefinition of `{func.name}`')
+            return False
+
+        self.methods[func.name] = func
 
     def __eq__(self, other):
         if isinstance(other, VStructType):

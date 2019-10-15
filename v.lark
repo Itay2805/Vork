@@ -14,6 +14,7 @@
 start: _module_item*
 
 _module_item: fn_decl
+            | method_decl
             | struct_decl
             | module_decl
             | import_decl
@@ -41,6 +42,9 @@ struct_field: NAME type_decl
                   | "pub" "mut" "mut"
 embedded_struct_field: (maybe_mut NAME)?
 
+// Method declaration
+method_decl: maybe_pub "fn" "(" NAME maybe_mut type_decl ")" NAME "(" fn_params ")" fn_return stmt_list
+
 // const declaration
 const_decl: "const" "(" (const_item)+ ")"
           | "const" const_item
@@ -62,7 +66,7 @@ const_item: NAME "=" _expr
      | stmt_var_decl
      | stmt_assignment
      | stmt_if
-     | _expr -> stmt_expr
+     | (expr_fn_call) -> stmt_expr
 
 stmt_var_decl: var_decl_vars ":=" _expr
 !maybe_var_decl: stmt_var_decl?
@@ -141,11 +145,12 @@ _expr: expr_logical_or
 !_op_logical_and: "&&"
 !_op_logical_or: "||"
 
-?expr_others: _expr "(" (maybe_mut _expr ("," maybe_mut _expr)*)? ")" -> expr_fn_call
+?expr_others: expr_fn_call
             | expr_member_access
             | expr_index
             | expr_literals
 
+expr_fn_call: _expr "(" (maybe_mut _expr ("," maybe_mut _expr)*)? ")"
 expr_member_access: _expr "." NAME
 expr_index: _expr "[" _expr "]"
 
