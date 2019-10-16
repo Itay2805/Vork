@@ -23,7 +23,6 @@ kinda in the order I wanna work on stuff and kinda not
 * ranged for loops (0..x)
 * enums
 * optionals
-* methods
 * strings
 * maps
 * go statement
