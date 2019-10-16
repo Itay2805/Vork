@@ -44,8 +44,7 @@ if __name__ == '__main__':
                         print(f'{RED}F{RESET}', end='')
                         final_errors.append(e)
                     except AssertionError as e:
-                        print(f'{RED}E{RESET}', end='')
-                        # TODO
+                        print(f'{RED}E<{str(e)}>{RESET}', end='')
 
                 print()
                 print()

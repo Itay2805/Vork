@@ -18,6 +18,30 @@ def assert_integer_cast(type, value):
         assert 0 <= value <= max_val, f"can not cast from number `{value}` to `{type}` (min: 0, max: {max_val})"
 
 
+class VRefInstance:
+    def __init__(self, obj):
+        self.obj = transfer(obj)
+
+    def get(self):
+        return self.obj
+
+    def set(self, obj):
+        self.obj = obj
+
+
+def transfer(value):
+    if isinstance(value, list) or isinstance(value, dict):
+        return value
+
+    elif isinstance(value, VRefInstance):
+        return value.get()
+
+    elif isinstance(value, int) or isinstance(value, float):
+        return value
+
+    # TODO: Structs
+
+
 class CallStackFrame:
 
     def __init__(self, function, module):
@@ -82,14 +106,14 @@ class VInterpreter:
             fields = expr.fields
 
             for field in expr.xtype.fields:
-                strct[field.name] = self._eval_expression(fields[0])
+                strct[field.name] = VRefInstance(self._eval_expression(fields[0]))
                 fields = fields[1:]
 
         elif isinstance(expr, ExprStructLiteralNamed):
             fields = expr.fields
 
             for field in fields:
-                strct[field[0]] = self._eval_expression(field[1])
+                strct[field[0]] = VRefInstance(self._eval_expression(field[1]))
 
         else:
             assert False
@@ -112,17 +136,20 @@ class VInterpreter:
         elif isinstance(expr, ExprIdentifierLiteral):
             var = self.call_stack[-1].get_variable(expr.name)
 
-            # If got a constant eval it
-            if isinstance(var, VConstant):
+            if isinstance(var, VRefInstance):
+                var = var.get()
+
+            elif isinstance(var, VConstant):
                 res = self._eval_expression(var.expr)
-                self.module.identifiers[var.name] = res
+                self.module.identifiers[var.name] = VRefInstance(res)
                 var = res
 
             return var
 
         elif isinstance(expr, ExprBinary):
             a = self._eval_expression(expr.left_expr)
-            res = eval(f'{a} {expr.op} {self._eval_expression(expr.right_expr)}')
+            b = self._eval_expression(expr.right_expr)
+            res = eval(f'{a} {expr.op} {b}')
 
             if expr.op not in ['>', '<', '!=', '==', '<=', '>=']:
                 if isinstance(a, int):
@@ -156,9 +183,11 @@ class VInterpreter:
 
         elif isinstance(expr, ExprMemberAccess):
             t = self._eval_expression(expr.expr)
+
             if isinstance(t, list):
                 if expr.member_name == 'len':
                     return len(t)
+
             elif isinstance(t, VModule):
                 var = t.get_identifier(expr.member_name)
 
@@ -169,19 +198,25 @@ class VInterpreter:
                     var = res
 
                 return var
+
             else:
-                return t[expr.member_name]
+                val = t[expr.member_name]
+
+                if isinstance(val, VRefInstance):
+                    val = val.get()
+
+                return val
 
         elif isinstance(expr, ExprArrayLiteral):
-            return [self._eval_expression(expr) for expr in expr.exprs]
+            return [VRefInstance(self._eval_expression(expr)) for expr in expr.exprs]
 
         elif isinstance(expr, ExprArrayLiteralUninit):
-            return [self._eval_expression(default_value_for_type(expr.xtype))] * self._eval_expression(expr.length)
+            return [VRefInstance(self._eval_expression(default_value_for_type(expr.xtype)))] * self._eval_expression(expr.length)
 
         elif isinstance(expr, ExprIndex):
             index = self._eval_expression(expr.at)
             src = self._eval_expression(expr.src)
-            return src[index]
+            return src[index].get()
 
         else:
             assert False, f"Unknown expression `{expr}` ({expr.__class__})"
@@ -247,17 +282,17 @@ class VInterpreter:
                 results = [results]
 
             for i in range(len(results)):
-                self.call_stack[-1].set_variable(stmt.vars[i][1], results[i])
+                self.call_stack[-1].set_variable(stmt.vars[i][1], VRefInstance(results[i]))
 
         elif isinstance(stmt, StmtAssign):
             if isinstance(stmt.dest, ExprIdentifierLiteral):
-                self.call_stack[-1].set_variable(stmt.dest.name, self._eval_expression(stmt.expr))
+                self.call_stack[-1].get_variable(stmt.dest.name).set(self._eval_expression(stmt.expr))
 
             elif isinstance(stmt.dest, ExprMemberAccess):
-                self._eval_expression(stmt.dest.expr)[stmt.dest.member_name] = self._eval_expression(stmt.expr)
+                self._eval_expression(stmt.dest.expr)[stmt.dest.member_name].set(self._eval_expression(stmt.expr))
 
             elif isinstance(stmt.dest, ExprIndex):
-                self._eval_expression(stmt.dest.src)[self._eval_expression(stmt.dest.at)] = self._eval_expression(stmt.expr)
+                self._eval_expression(stmt.dest.src)[self._eval_expression(stmt.dest.at)].set(self._eval_expression(stmt.expr))
 
             else:
                 assert False, f"Can not assign to expression `{stmt.dest}` ({stmt.dest.__class__})"
@@ -307,7 +342,7 @@ class VInterpreter:
             if stmt.index_name is None:
                 e = self._eval_expression(stmt.expr)
                 for item in e:
-                    self.call_stack[-1].set_variable(stmt.item_name, item)
+                    self.call_stack[-1].set_variable(stmt.item_name, VRefInstance(item))
 
                     ret = self._eval_statement(stmt.stmts)
                     if ret is not None:
@@ -326,8 +361,8 @@ class VInterpreter:
             else:
                 arr = self._eval_expression(stmt.expr)
                 for index in range(len(arr)):
-                    self.call_stack[-1].set_variable(stmt.item_name, arr[index])
-                    self.call_stack[-1].set_variable(stmt.index_name, index)
+                    self.call_stack[-1].set_variable(stmt.item_name, VRefInstance(arr[index]))
+                    self.call_stack[-1].set_variable(stmt.index_name, VRefInstance(index))
                     for s in stmt.stmts:
                         ret = self._eval_statement(s)
                         if ret is not None:
@@ -369,7 +404,7 @@ class VInterpreter:
 
             # TODO: Check params
             for i in range(len(func.param_names)):
-                self.call_stack[-1].set_variable(func.param_names[i], params[i])
+                self.call_stack[-1].set_variable(func.param_names[i], VRefInstance(params[i]))
 
             return self._eval_statement(func.root_scope)
 
