@@ -474,6 +474,7 @@ class ExprMemberAccess(Expr):
                 raise TypeCheckError(self.report, f'no such method', scope.get_function().name)
 
         elif isinstance(t, VArray):
+            # TODO: Handle array methods and what not
             if self.member_name == 'len':
                 return module.add_type(VInt)
 
