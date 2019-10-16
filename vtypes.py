@@ -190,12 +190,14 @@ class VFunctionType(VType):
                 return False
             if self.param_types != other.param_types:
                 return False
+            if self.method != other.method:
+                return False
             return True
         return False
 
     def __str__(self):
         # Format params
-        params = ', '.join(['mut ' if param[1] else '' + str(param[0]) for param in self.param_types])
+        params = ', '.join([('mut ' if param[1] else '') + str(param[0]) for param in self.param_types])
 
         # Format return types
         return_types = ', '.join(map(str, self.return_types))

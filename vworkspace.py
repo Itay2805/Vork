@@ -47,8 +47,17 @@ class VWorkspace:
         b.add_type(VIntegerType(128, False), False, 'u128')
         b.add_type(VBool(), False, 'bool')
 
+        self.types = []
+
         # Make sure we ignore the builtin as a root module
         self.root_module = None
+
+    def add_type(self, xtype):
+        if xtype in self.types:
+            xtype = self.types[self.types.index(xtype)]
+        else:
+            self.types.append(xtype)
+        return xtype
 
     def load_module(self, name: str):
         """

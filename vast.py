@@ -263,7 +263,7 @@ class VModule:
         else:
             assert False, f"Unknown type type {xtype.__class__}"
 
-        return xtype
+        return self.workspace.add_type(self.add_type(xtype))
 
     def type_checking(self):
         from vstmt import StmtReturn
