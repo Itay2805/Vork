@@ -368,7 +368,7 @@ class VAstTransformer(Transformer):
         cond = ExprBoolLiteral(True, self.reporter.reporter_from_meta(meta))
         expr = ExprIntegerLiteral(0, self.reporter.reporter_from_meta(meta))
 
-        return StmtFor(None, cond, expr, children[0][0], self.reporter.reporter_from_meta(meta))
+        return StmtFor(None, cond, expr, children[0], self.reporter.reporter_from_meta(meta))
 
     @v_args(meta=True)
     def stmt_foreach(self, children, meta):

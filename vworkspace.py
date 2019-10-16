@@ -3,9 +3,12 @@ import pickle
 import os
 
 
+PLATFORMS = ['interp', 'win', 'lin', 'mac']
+
+
 class VWorkspace:
 
-    def __init__(self, code_folders, module_folders=None, load_code_tests=False, load_module_tests=False):
+    def __init__(self, code_folders, module_folders=None, load_code_tests=False, load_module_tests=False, platform='interp'):
         """
         :type module_folders: List[str] or None
         :type code_folders: List[str] or None
@@ -24,6 +27,9 @@ class VWorkspace:
         self.root_module = None  # type: VModule or None
         self.load_code_tests = load_code_tests
         self.load_module_tests = load_module_tests
+        self.platform = platform
+
+        assert platform in PLATFORMS
 
         self.parser = VParser
 
@@ -98,6 +104,18 @@ class VWorkspace:
 
                 # Only load test files when needed
                 if file.endswith('_test.v') and not load_tests:
+                    continue
+
+                # Skip platforms which are not used
+                should_skip = False
+                for platform in PLATFORMS:
+                    if platform == self.platform:
+                        continue
+                    if file.endswith(f'_{platform}.v'):
+                        should_skip = True
+                        break
+
+                if should_skip:
                     continue
                     
                 # TODO: platform specific files

@@ -411,6 +411,7 @@ class VInterpreter:
         # Interop function
         elif isinstance(func, VInteropFunction):
             import random
+            import time
 
             if func.name == 'print':
                 print(params[0])
@@ -418,6 +419,8 @@ class VInterpreter:
                 random.seed(params[0])
             elif func.name == 'rand':
                 return random.randint(0, 0x7fffffff)
+            elif func.name == 'ticks':
+                return int(time.clock())
             else:
                 assert False, f"Unknown builtin function `{func.name}`"
 
