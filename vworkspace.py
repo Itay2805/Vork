@@ -1,5 +1,5 @@
 from vparser import *
-import time
+import pickle
 import os
 
 
@@ -90,8 +90,8 @@ class VWorkspace:
         def parse_folder(dir, load_tests):
             good = True
             got_any = False
-            for file in os.listdir(dir):
-                file = os.path.join(dir, file)
+            for filename in os.listdir(dir):
+                file = os.path.join(dir, filename)
 
                 if not file.endswith('.v'):
                     continue
@@ -106,44 +106,31 @@ class VWorkspace:
                     reporter = ErrorReporter(file)
                     got_any = True
                     try:
-                        # TODO: Only if timing
-                        start = time.time()
-                        parse_tree = self.parser.parse(f.read())
-                        end = time.time()
+                        cache_file = os.path.join(dir, f'.{filename}.cache')
+                        parse_tree = None
+
+                        # Check if the cache exists and is not older than the file
+                        try:
+                            if os.path.exists(cache_file) and os.path.getmtime(cache_file) >= os.path.getmtime(file):
+                                with open(cache_file, 'rb') as f:
+                                    parse_tree = pickle.loads(f.read())
+                        finally:
+                            pass
+
+                        # No cache, parse and create cache
+
+                        if parse_tree is None:
+                            parse_tree = self.parser.parse(f.read())
+                            with open(cache_file, 'wb') as f:
+                                f.write(pickle.dumps(parse_tree))
 
                         if not VAstTransformer(reporter, self).transform(parse_tree):
                             good = False
                     except UnexpectedToken as e:
-
-                        expected_transform = {
-                            'DEC_NUMBER': 'Decimal Number',
-                            'BANG': '!',
-                            'NAME': 'Identifier',
-                            'RBRACE': '}',
-                            'LBRACE': '{',
-                            'STAR': '*',
-                            'STRING': 'String Literal',
-                            'AMPERSAND': '&',
-                            'MINUS': '-',
-                            'TILDE': '~',
-                            'LPAR': '(',
-                            'RPAR': ')',
-
-                            '_NEWLINE': None,
-                        }
-
                         reporter.reporter(e.line, e.column)('error', 'unexpected token')
                         print('expected:')
                         for expected in e.expected:
-                            if expected in expected_transform:
-                                expected = expected_transform[expected]
-                            elif expected.startswith('__ANON'):
-                                expected = None
-                            else:
-                                expected = f'{expected.lower()}'
-
-                            if expected is not None:
-                                print(f'\t* {expected}')
+                            print(f'\t* {expected}')
                         print()
                         good = False
 
