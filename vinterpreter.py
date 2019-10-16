@@ -194,8 +194,7 @@ class VInterpreter:
             import sys
             val = self._eval_expression(stmt.expr)
             if not val:
-                stmt.report('error', 'assertion failed!')
-                sys.exit(-1)
+                raise TypeCheckError(stmt.report, 'assertion failed!', self.call_stack[-1].function.name)
 
         elif isinstance(stmt, StmtCompound):
             self.call_stack[-1].push_scope()

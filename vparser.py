@@ -2,6 +2,7 @@ from lark import *
 from vast import *
 from vexpr import *
 from vstmt import *
+from colors import *
 
 
 class ErrorReporter:
@@ -28,9 +29,9 @@ class ErrorReporter:
             # TODO: colorsss
 
             if func is not None:
-                print(f'{self.filename}: In function `{func}`:')
+                print(f'{BOLD}{self.filename}{RESET}: In function `{BOLD}{func}{RESET}`:')
 
-            print(f'{self.filename}:{line}:{col}: {level}: {msg}')
+            print(f'{BOLD}{self.filename}:{line}:{col}:{RESET} {RED}{BOLD}{level}:{RESET} {msg}')
             print(f'{code_line}')
             my_end_col = end_col - 1
             if end_line != line:
@@ -42,7 +43,7 @@ class ErrorReporter:
                     c += '\t'
                 else:
                     c += ' '
-            print(c + '^' + '~' * (my_end_col - (col - 1) - 1))
+            print(c + BOLD + RED + '^' + '~' * (my_end_col - (col - 1) - 1) + RESET)
             print()
 
         return report
