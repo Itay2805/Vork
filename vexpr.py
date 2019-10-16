@@ -490,6 +490,8 @@ class ExprMemberAccess(Expr):
                 return t
 
         elif isinstance(t, dict):
+            if not self.member_name in t:
+                raise TypeCheckError(self.report, f"unknown interop function `{self.member_name}`", scope.get_function().name)
             return t[self.member_name].type
 
         else:

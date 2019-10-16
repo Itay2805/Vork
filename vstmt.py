@@ -104,16 +104,10 @@ class StmtDeclare(Stmt):
 
             to_mut = var[0]
             name = var[1]
+            report = var[2]
 
-            # Override mutable if possible
-            # 1. both are not mut
-            # 2. both are mut
-            # 3. assign mut to none mut
-            # TODO: There seem to be no checking on this
-            # if not from_mut and to_mut:
-            #     raise TypeCheckError(self.expr.report, "Can not assign immutable type to a mutable variable", scope.get_function().name)
-
-            scope.add_variable(name, to_mut, var_type)
+            if not scope.add_variable(name, to_mut, var_type):
+                raise TypeCheckError(report, f'redefined `{name}`', scope.get_function().name)
 
     def __str__(self):
         s = ''
@@ -223,18 +217,18 @@ class StmtFor(Stmt):
     def type_check(self, module, scope):
         # Check the declaration
         if self.decl is not None:
-            self.decl.type_check(module, scope)
+            self.decl.type_check(module, self.stmts)
 
         # Check the condition
-        t = self.condition.resolve_type(module, scope)
+        t = self.condition.resolve_type(module, self.stmts)
         if not isinstance(t, VBool):
             raise TypeCheckError(self.condition.report, f"for condition has to be bool, got `{t}`", scope.get_function().name)
 
         # Check the expr
         if isinstance(self.expr, Stmt):
-            self.expr.type_check(module, scope)
+            self.expr.type_check(module, self.stmts)
         elif isinstance(self.expr, Expr):
-            self.expr.resolve_type(module, scope)
+            self.expr.resolve_type(module, self.stmts)
 
         # Check all the statements
         return self.stmts.type_check(module, scope)

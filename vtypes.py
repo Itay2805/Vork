@@ -185,7 +185,7 @@ class VFunctionType(VType):
         self.return_types.append(xtype)
 
     def __eq__(self, other):
-        if isinstance(other, VFunctionType):
+        if isinstance(other, VFunctionType) and self.module == other.module:
             if self.return_types != other.return_types:
                 return False
             if self.param_types != other.param_types:

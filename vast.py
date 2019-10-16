@@ -104,8 +104,11 @@ class StmtCompound(Stmt):
         :type mut: bool
         :type xtype: VType
         """
-        assert name not in self.variables, f"Already got variable with name `{name}`"
+        if name in self.variables:
+            return False
+
         self.variables[name] = VVariable(mut, name, xtype)
+        return True
 
     def get_function(self):
         """

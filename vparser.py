@@ -338,7 +338,7 @@ class VAstTransformer(Transformer):
 
     @v_args(meta=True)
     def var_decl(self, children, meta):
-        return children[0], str(children[1])
+        return children[0], children[1], self.reporter.reporter_from_meta(children[1])
 
     @v_args(meta=True)
     def stmt_if(self, children, meta):
@@ -389,7 +389,7 @@ class VAstTransformer(Transformer):
         # Make the declared types be mut by default
         if isinstance(decl, StmtDeclare):
             for i in range(len(decl.vars)):
-                decl.vars[i] = (True, decl.vars[i][1])
+                decl.vars[i] = (True, decl.vars[i][1], decl.vars[i][2])
 
         return StmtFor(decl, condition, expr, stmt_list, self.reporter.reporter_from_meta(meta))
 
