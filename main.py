@@ -1,65 +1,53 @@
-from vinterpreter import VInterpreter
-from vworkspace import VWorkspace
-from vparser import VParser, TypeCheckError
-from vast import VModule
-from colors import *
+from vork.tokenizer import *
+from vork.parser import *
 
-import sys
+BOLD = '\033[01m'
+RESET = '\033[0m'
+GREEN = '\033[32m'
+RED = '\033[31m'
 
-import argparse
+
+def parse_file(filename):
+    with open(filename, 'r') as f:
+        text = f.read()
+        lines = text.splitlines()
+        tokenizer = Tokenizer(text)
+        parser = Parser(tokenizer)
+        try:
+            return parser.parse()
+        except Exception as e:
+            # TODO: error recovering?
+
+            pos = tokenizer.token.pos
+
+            msg = ", ".join(e.args)
+            if msg == '':
+                msg = 'Unexpected token'
+
+            print(f'{BOLD}{filename}:{pos.start_line + 1}:{pos.start_column + 1}:{RESET} {RED}{BOLD}syntax error:{RESET} {msg}')
+
+            line = lines[pos.start_line]
+            line = line[:pos.start_column] + BOLD + line[pos.start_column:pos.end_column] + RESET + line[pos.end_column:]
+            print(line)
+
+            c = ''
+            for i in range(pos.start_column):
+                if lines[pos.start_line][i] == '\t':
+                    c += '\t'
+                else:
+                    c += ' '
+
+            print(c + BOLD + RED + '^' + '~' * (pos.end_column - pos.start_column - 1) + RESET)
+            print()
+
+            return None
+
+def main():
+    res = parse_file("test.v")
+    if res is not None:
+        print('\n'.join(map(str,res)))
+    else:
+        exit(-1)
 
 if __name__ == '__main__':
-    test = True
-
-    # TODO: Proper shit
-    workspace = VWorkspace(['./test'], load_module_tests=test)
-    module = workspace.load_module('main')
-    if module is not None and isinstance(module, VModule):
-        if workspace.type_check():
-            interpreter = VInterpreter(module)
-
-            # Running tests
-            if test:
-
-                # Find all teh functions to run
-                functions = []
-                for name in module.identifiers:
-                    if name.startswith('test_'):
-                        functions.append(name)
-
-                print('running the following tests:')
-                for fun in functions:
-                    print(f'\t* {fun}')
-
-                final_errors = []
-
-                print()
-
-                # Run them
-                for func in functions:
-                    try:
-                        interpreter.eval_function(func)
-                        print(f'{GREEN}.{RESET}', end='')
-                    except TypeCheckError as e:
-                        print(f'{RED}F{RESET}', end='')
-                        final_errors.append(e)
-                    except AssertionError as e:
-                        print(f'{RED}E<{str(e)}>{RESET}', end='')
-
-                print()
-                print()
-
-                # Print the errors
-                print(f'results: {len(functions) - len(final_errors)}/{len(functions)} passed')
-                for err in final_errors:
-                    err.report(f'{BOLD}{RED}assertion{RESET}', err.msg, err.func)
-
-                sys.exit(len(final_errors))
-
-            # just run main
-            else:
-                interpreter.eval_function('main')
-        else:
-            sys.exit(2)
-    else:
-        sys.exit(1)
+    main()

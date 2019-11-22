@@ -1,62 +1,101 @@
 # Vork
 
-Vork will eventually be a fully fledged V implementation, including 
-parser, compiler and interpreter (and maybe more will see how much time 
-I will have)
+Vork will eventually be a fully fledged V implementation.
 
-Right now it is only the parser and interpreter, once I get the 
-interpreter to have all/most of V's features I will move on to work on 
-a compiler.
+Right now it is just a parser, once I get a full parser then I will start working on code gen.
 
-## vlib
-The vlib shipped with the compiler is mostly copied from the official 
-vlib. main differences are that most of the implementation of the 
-builtins moved to be part of the code gen.
+## Example
+for now all that it does is read in a file and try to parse it. Right now there is no error
+recovery on a syntax error, but there is a nice printout so you can hopefully understand what went wrong.
 
-for example while the official vlib has alot of the array functions be 
-implemented in V, and the compiler will turn say `[1,2,3,4]` to a 
-`new_array_from_c_array`, we don't do that, and leave the creation of 
-the array to the implementation of the code gen.
+The parse output will be printed and is formated in a lisp like way
 
-this allows to easily have the interpreter without starting to have 
-different builtin implementations in v itself (for example, currently 
-the js code gen of v has different v builtin implementation)
+```v
+fn fib(n int) int {
+        if n <= 1 {
+                return n
+        }
+        return fib(n - 1) + fib(n - 2)
+}
+
+fn main() {
+        i := 0
+        for i = 0; i < 10; ++i {
+                println(fib(i))
+        }
+}
+```
+
+```lisp
+(func fib ((n int)) int
+  (block
+    (if (<= n 1)
+      (block
+        (return n)))
+    (return (+ (call fib ((- n 1))) (call fib ((- n 2)))))))
+(func main () 
+  (block
+    (var (i) 0)
+    (for (= i 0) (< i 10) (prefix ++ i)
+      (block
+        (call println ((call fib (i))))))))
+```
+
+## Formal grammar
+The [lark](v.lark) file has an old formal grammar I defined which I am going to keep as a reference, maybe after finishing the hand written parser I will go back and rewrite the formal grammar to be updated.
+
+hopefully by the done I am finished with the parser the (official) formal grammar will be out already :shrug:
 
 ## Implemented
-currently the program will generate a first AST using Earley parser 
-(V is too ambiguous for a LALR). Then it will transform the Tree into
-bytecode like AST; which then we can either run directly in the 
-interpreter or later on maybe do code gen with it.
-
-* All binary and unary expressions (postfix and prefix operators are missing currently)
-* Integers, Boolean and Float types
-* Arrays (can technically parse Ref and Opt but does not actually handle them)
-* Functions and function calling
-* Modules and imports  
-* Structs and access modifiers
-* Methods
+* All binary and unary expressions
+    * post fix operators are not added to the ast yet
+    * Function calls can not take `mut` modifier to expression for now
+* Almost full type parsing support
+    * missing function types
+* Functions, methods and interop functions
+    * missing generics
+* Module and Imports
+* Structs with their access modifiers
+    * missing the base type
+    * missing generics
 * asserts
-* if\else\if else and most of the for loops
-* variable declaration and assignment (and op assignment `+=`) with mutability checking
-* consts
-* Interop functions (the interpreter handles what to do for each interop function)
+* if\if else\else
+* Most of the for loops
+    * in c like for loops can not declare a variable at the start...
+    * missing for with only condition (`for true`)
+    * missing ranged for loop
+* Constants
+* Variable declarations
+* Enums declarations 
+* Integer and Float literals
 
-## TODO
-kinda in the order I wanna work on stuff and kinda not
-
-* ranged for loops (0..x)
-* enums
-* optionals
-* strings
-* maps
-* go statement
-* match
-* expression if
-* references/pointers/whatever
-* figure postfix and prefix ++/--
+## Missing
+* String, map and array literals
 * interfaces
-* attributes
-* fix embedded structs
-* operator overloading
-* generics
+* match
+* go statement
+* or statement (is it still a thing?)
+* Attributes
 * compile time if
+
+## Problems
+Right now the parser ignores new lines **completely**, that is because from what I could see the official V compiler also does that, but in an inconsistent way... sometimes it ignores it and sometimes not...
+
+for the most part it is not actually a problem, but specifically for the `*` operator it makes a problem, because it is used both for deref and for multipication
+```v
+a := 123
+b := &a
+*b = 456
+```
+will not give the correct output! 
+
+the simplest way to get around it for now is to simply seround it with a block
+```v
+a := 123
+b := &a
+{*b = 456}
+```
+
+but the real solution is to wait for a formal grammar and see how newlines should actually be handled.
+
+note that this problem happens on any operator which may be used in both unary and binary way, including `-` and alike...
