@@ -8,6 +8,8 @@ class Parser:
         self.t = tokenizer
         self.t.next_token()
 
+        self.frame = []
+
     ###################################################################################################################
     # Expression parsing
     #
@@ -283,7 +285,7 @@ class Parser:
             if self.t.match_keyword('else'):
                 # We support `else if` without block before
                 if self.t.is_keyword('if'):
-                    block_false = StmtBlock([self.parse_stmt()])
+                    block_false = StmtBlock(self.frame[-1], [self.parse_stmt()])
 
                 # The block
                 else:
@@ -393,9 +395,14 @@ class Parser:
     def parse_stmt_block(self):
         self.t.expect_token('{')
         stmts = []
+        block = StmtBlock(self.frame[-1], stmts)
+
+        self.frame.append(block)
         while not self.t.match_token('}'):
             stmts.append(self.parse_stmt())
-        return StmtBlock(stmts)
+        self.frame.pop()
+
+        return block
 
     ###################################################################################################################
     # Declaration parsing
@@ -425,6 +432,7 @@ class Parser:
             return VPointerType(self.parse_type())
 
         # Basic type
+        # TODO: support types from other modules
         elif self.t.is_token(IdentToken):
             t = VUnknownType(self.t.token.value)
             self.t.next_token()
@@ -485,13 +493,17 @@ class Parser:
         if not self.t.is_token('{'):
             ret_type = self.parse_type()
 
+        func = FuncDecl(pub, interop, name, method, args, ret_type)
+
         # The code
         if not interop:
-            scope = self.parse_stmt_block()
+            self.frame.append(func)
+            func.block = self.parse_stmt_block()
+            self.frame.pop()
         else:
-            scope = None
+            func.block = None
 
-        return FuncDecl(pub, interop, name, method, args, ret_type, scope)
+        return func
 
     def _parse_struct_element(self, access: StructMemberAccess):
         assert self.t.is_token(IdentToken), f"Expected name, got {self.t.token}"

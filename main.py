@@ -42,12 +42,25 @@ def parse_file(filename):
 
             return None
 
+
 def main():
     res = parse_file("test.v")
+
+    module = Module()
+
+    for r in res:
+        if isinstance(r, ModuleDecl):
+            module.name = r.name
+        else:
+            module.add(r)
+
+    module.type_checking()
+
     if res is not None:
-        print('\n'.join(map(str,res)))
+        print('\n'.join(map(str, res)))
     else:
         exit(-1)
+
 
 if __name__ == '__main__':
     main()
