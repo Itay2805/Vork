@@ -16,22 +16,35 @@ class Parser:
     # See https://www.tutorialspoint.com/go/go_operators_precedence.htm for the table that I used as reference
     ###################################################################################################################
 
-    def _parse_literal(self):
+    def _parse_literal(self, check_range=True):
+
+        # Integer literal
         if self.t.is_token(IntToken):
             val = self.t.token.value
             self.t.next_token()
             return ExprIntegerLiteral(val)
 
+        # Float literal
         elif self.t.is_token(FloatToken):
             val = self.t.token.value
             self.t.next_token()
             return ExprFloatLiteral(val)
 
+        # Identifier
         elif self.t.is_token(IdentToken):
             val = self.t.token.value
             self.t.next_token()
             return ExprIdentifierLiteral(val)
 
+        # Array literal
+        elif self.t.match_token('['):
+            exprs = []
+            while not self.t.match_token(']'):
+                exprs.append(self.parse_expr())
+            # TODO: I remember there were some array attributes, will need to look it up
+            return ExprArrayLiteral(exprs)
+
+        # Parens
         elif self.t.match_token('('):
             expr = self.parse_expr()
             self.t.expect_token(')')
@@ -104,6 +117,22 @@ class Parser:
             return ExprImplicitEnum(name)
 
         else:
+            self.t.push()
+            self.t.next_token()
+
+            # Check for ranged array literal
+            # TODO: for now we only allow for literals
+            #       to be used in the ranged array, is
+            #       that what we really want?
+            if self.t.is_token('..'):
+                self.t.pop()
+                expr_from = self._parse_literal()
+                self.t.expect_token('..')
+                expr_to = self._parse_literal()
+                return ExprRange(expr_from, expr_to)
+
+            self.t.pop()
+
             expr = self._parse_postfix()
 
         return expr
@@ -471,6 +500,7 @@ class Parser:
         if self.t.match_token('.'):
             assert name == 'C'
             assert self.t.is_token(IdentToken), f"Expected name, got {self.t.token}"
+            assert not pub, f'Interop functions can not be public!'
             interop = True
             name = self.t.token.value
             self.t.next_token()
@@ -490,7 +520,7 @@ class Parser:
 
         # the return value
         ret_type = None
-        if not self.t.is_token('{'):
+        if not self.t.is_token('{') and not self.t.is_token(KeywordToken):
             ret_type = self.parse_type()
 
         func = FuncDecl(pub, interop, name, method, args, ret_type)

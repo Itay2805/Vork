@@ -64,11 +64,10 @@ hopefully by the done I am finished with the parser the (official) formal gramma
 * Most of the for loops
     * in c like for loops can not declare a variable at the start...
     * missing for with only condition (`for true`)
-    * missing ranged for loop
 * Constants
 * Variable declarations
 * Enums declarations 
-* Integer and Float literals
+* Integer, Float and arrays literals
 * Super basic type checking
     * missing mut checks
     * missing unsafe checks
@@ -76,12 +75,12 @@ hopefully by the done I am finished with the parser the (official) formal gramma
     * missing implicit enum
 
 ## Missing
-* String, map and array literals
+* string and map
 * interfaces
 * match
 * go statement
-* or statement (is it still a thing?)
-* Attributes
+* or statement
+* attributes
 * compile time if
 
 ## Problems

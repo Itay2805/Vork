@@ -307,6 +307,7 @@ class Tokenizer:
                     '++',
                     '--',
                     ':=',
+                    '..',
                 ]:
                     self.token = SymbolToken(pos, self.stream[:2])
                     self._inc_stream(2)

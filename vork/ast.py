@@ -63,18 +63,23 @@ class StmtBlock(Stmt):
         s += ')'
         return s
 
-    def get_var(self, name) -> Tuple[VType, bool] or None:
+    def get_var(self, name, search_parent: bool = True) -> Tuple[VType, bool] or None:
         if name not in self.vars:
-            return self.parent.get_var(name)
+            if search_parent:
+                return self.parent.get_var(name)
+            else:
+                return None
         return self.vars[name]
 
-    def add_var(self, name, type):
+    def add_var(self, name: str, type: VType, mut: bool):
         assert self.get_var(name) is None, f"variable {name} already exists in scope"
-        self.vars[name] = type
+        self.vars[name] = type, mut
 
     def type_checking(self, function):
+        function.push_frame(self)
         for stmt in self.stmts:
             stmt.type_checking(function)
+        function.pop_frame()
 
 
 class StmtExpr(Stmt):
@@ -174,14 +179,14 @@ class StmtForeach(Stmt):
         list_type = self.list.resolve_type(function)
 
         if isinstance(list_type, VArrayType):
-            self.block.add_var(self.name, list_type.type)
+            self.block.add_var(self.name, list_type.type, False)
             if self.index is not None:
-                self.block.add_var(self.name, VIntegerType(32, True))
+                self.block.add_var(self.index, VIntegerType(32, True), False)
 
         elif isinstance(list_type, VMapType):
-            self.block.add_var(self.name, list_type.value_type)
+            self.block.add_var(self.name, list_type.value_type, False)
             if self.index is not None:
-                self.block.add_var(self.name, list_type.key_type)
+                self.block.add_var(self.index, list_type.key_type, False)
 
         else:
             assert False, f'Can not iterate over type `{list_type}`'
@@ -417,6 +422,45 @@ class ExprIntegerLiteral(Expr):
         return VIntegerType(32, True)
 
 
+class ExprArrayLiteral(Expr):
+
+    def __init__(self, values: List[Expr]):
+        super(ExprArrayLiteral, self).__init__()
+        self.values = values
+
+    def __str__(self):
+        s = '(array\n'
+        s += '  ' + str(self.values).replace('\n', '\n  ') + ')'
+        return s
+
+    def _internal_resolve_type(self, function):
+        array_type = None
+        for element in self.values:
+            type = element.resolve_type(function)
+            if array_type is None:
+                array_type = type
+            else:
+                assert type == array_type, f"Type mismatch in array literal, expected `{array_type}`, got `{type}`"
+        return VArrayType(array_type)
+
+
+class ExprRange(Expr):
+
+    def __init__(self, expr_from: Expr, expr_to: Expr):
+        super(ExprRange, self).__init__()
+        self.expr_from = expr_from
+        self.expr_to = expr_to
+
+    def __str__(self):
+        return f'(range {self.expr_from} {self.expr_to})'
+
+    def _internal_resolve_type(self, function):
+        from_type = self.expr_from.resolve_type(function)
+        to_type = self.expr_to.resolve_type(function)
+        assert from_type == to_type, f"Type mismatch ({from_type} and {to_type})"
+        return VArrayType(from_type)
+
+
 class ExprFloatLiteral(Expr):
 
     def __init__(self, value: int):
@@ -440,7 +484,9 @@ class ExprIdentifierLiteral(Expr):
         return self.name
 
     def _internal_resolve_type(self, function):
-        var, mut = function.get_var(self.name)
+        res = function.get_var(self.name)
+        assert res is not None, f"Unknown identifier `{self.name}`"
+        var, mut = res
         return var
 
 
@@ -679,6 +725,13 @@ class ExprMemberAccess(Expr):
 
         # TODO: Search for methods
 
+        # Interops (should be)
+        elif isinstance(value_type, dict):
+            if self.member in value_type:
+                return value_type[self.member]
+            else:
+                assert False, f'Unknown interop function `{self.member}`'
+
         # Did not find anything
         assert False, f'Type `{self.member}` has no members!'
 
@@ -760,6 +813,7 @@ class FuncDecl:
         self.args = args
         self.ret_type = ret_value
         self.block = None  # type: StmtBlock or None
+        self.frame = []  # type: List[StmtBlock]
 
     def __str__(self):
         pub = 'pub ' if self.pub else ''
@@ -781,11 +835,25 @@ class FuncDecl:
         assert self.module is not None
         return self.module
 
+    def push_frame(self, block):
+        self.frame.append(block)
+
+    def pop_frame(self):
+        self.frame.pop()
+
     def get_var(self, name):
+        # Check for the stack frames first
+        for frame in self.frame:
+            f = frame.get_var(name, False)
+            if f is not None:
+                return f
+
+        # Then check for the args
         for arg in self.args:
             if arg.name == name:
                 return arg.type, arg.mut
 
+        # Lastly check from the module
         return self.module.get_var(name)
 
 
@@ -919,14 +987,27 @@ class Module:
 
     def __init__(self):
         self.name = 'main'
-        self.decls = {}  # type: Dict[str, Any]
+        self.decls = {
+            'C': {}
+        }  # type: Dict[str, Any]
+
+        # interop functions are added to this scope
 
     def add(self, val):
         assert val.name not in Module.TYPE_MAP, f'duplicate name `{val.name}` in module `{self.name}`'
-        assert self.get_var(val.name) is None, f'duplicate name `{val.name}` in module `{self.name}`'
         if not isinstance(val, Module):
             val.module = self
-        self.decls[val.name] = val
+
+        # Handle interop functions properly
+        if isinstance(val, FuncDecl):
+            if val.interop:
+                assert val.name not in self.decls['C'], f'duplicate name `{val.name}` in module `{self.name}`'
+                self.decls['C'][val.name] = val
+            else:
+                assert val.name not in self.decls, f'duplicate name `{val.name}` in module `{self.name}`'
+                self.decls[val.name] = val
+        else:
+            self.decls[val.name] = val
 
     def get_var(self, name):
         if name in self.decls:
@@ -967,6 +1048,15 @@ class Module:
         elif isinstance(xtype, EnumDecl) or isinstance(xtype, StructDecl) or isinstance(xtype, FuncDecl):
             pass
 
+        # Handle a dictionary
+        elif isinstance(xtype, dict):
+            for key in xtype:
+                xtype[key] = self.resolve_type(xtype[key])
+
+        # No return value
+        elif xtype is None:
+            return None
+
         else:
             assert False, xtype
 
@@ -989,6 +1079,18 @@ class Module:
                 constants.append(decl)
             elif isinstance(decl, FuncDecl):
                 functions.append(decl)
+
+        # TODO: Functions should return a func type!
+
+        # Resolve all the interop stuff
+        for r in self.decls['C']:
+            r = self.decls['C'][r]
+            if isinstance(r, FuncDecl):
+                for arg in r.args:
+                    arg.type = self.resolve_type(arg.type)
+
+                if r.ret_type is not None:
+                    r.ret_type = self.resolve_type(r.ret_type)
 
         # Resolve all the constants
         for const in constants:

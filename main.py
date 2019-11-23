@@ -17,6 +17,8 @@ def parse_file(filename):
             return parser.parse()
         except Exception as e:
             # TODO: error recovering?
+            import traceback
+            traceback.print_exc()
 
             pos = tokenizer.token.pos
 
@@ -45,6 +47,8 @@ def parse_file(filename):
 
 def main():
     res = parse_file("test.v")
+    if res is None:
+        exit(-1)
 
     module = Module()
 
@@ -56,10 +60,7 @@ def main():
 
     module.type_checking()
 
-    if res is not None:
-        print('\n'.join(map(str, res)))
-    else:
-        exit(-1)
+    print('\n'.join(map(str, res)))
 
 
 if __name__ == '__main__':

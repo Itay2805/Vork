@@ -1,6 +1,8 @@
-fn fib(n int) int {
-        if n <= 1 {
-                return n
-        }
-        return fib(n - 1) + fib(n - 2)
+fn C.printint(num int)
+
+fn main() {
+	for _ in 0..5 {
+		C.printint(_)
+	}
+	C.printint(123)
 }
