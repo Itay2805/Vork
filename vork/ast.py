@@ -102,7 +102,7 @@ class StmtReturn(Stmt):
 
         for expr in self.exprs:
             expr.resolve_type(function)
-            assert expr.type == function.ret_value, f'Type mismatch, expected `{function.ret_value}`, got `{expr.type}`'
+            assert expr.type == function.ret_type, f'Type mismatch, expected `{function.ret_type}`, got `{expr.type}`'
 
 
 class StmtAssert(Stmt):
@@ -722,13 +722,15 @@ class ExprCall(Expr):
     def _internal_resolve_type(self, function):
         func_type = self.func.resolve_type(function)
 
-        assert isinstance(func_type, VFuncType), f'Not a function!'
+        assert isinstance(func_type, FuncDecl), f'Not a function!'
         assert len(func_type.args) == len(self.args), f'Function expected {len(func_type.args)} arguments, got {len(self.args)}'
 
         for i in range(len(func_type.args)):
-            assert func_type.args[i] == self.args[i].resolve_type(function), f'Type mismatch, expected `{func_type.args[i]}`, got `{self.args[i].resolve_type(function)}`'
+            expect_arg_type = func_type.args[i].type
+            arg_type = self.args[i].resolve_type(function)
+            assert arg_type == arg_type, f'Type mismatch, expected `{func_type.args[i]}`, got `{arg_type}`'
 
-        return func_type.ret
+        return func_type.ret_type
 
 ###################################################################################################################
 # Declarations
@@ -962,7 +964,7 @@ class Module:
             pass
 
         # Enums and structs are already resovled
-        elif isinstance(xtype, EnumDecl) or isinstance(xtype, StructDecl):
+        elif isinstance(xtype, EnumDecl) or isinstance(xtype, StructDecl) or isinstance(xtype, FuncDecl):
             pass
 
         else:

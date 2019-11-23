@@ -54,6 +54,7 @@ hopefully by the done I am finished with the parser the (official) formal gramma
     * missing function types
 * Functions, methods and interop functions
     * missing generics
+    * missing multiple return value
 * Module and Imports
 * Structs with their access modifiers
     * missing the base type
@@ -68,6 +69,11 @@ hopefully by the done I am finished with the parser the (official) formal gramma
 * Variable declarations
 * Enums declarations 
 * Integer and Float literals
+* Super basic type checking
+    * missing mut checks
+    * missing unsafe checks
+    * missing access checks (pub)
+    * missing implicit enum
 
 ## Missing
 * String, map and array literals
