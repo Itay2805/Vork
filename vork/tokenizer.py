@@ -284,7 +284,7 @@ class Tokenizer:
                     self.token = IdentToken(pos, value)
 
             # Special characters
-            elif self.stream[0] in '()[]{};\'",.:/*-+!%&<>=~^|':
+            elif self.stream[0] in '()[]{};\'",.:/*-+!%&<>=~^|?':
 
                 # Two character symbols
                 if len(self.stream) > 1 and self.stream[:2] in [
@@ -319,7 +319,7 @@ class Tokenizer:
 
             # Unknown
             else:
-                raise UnknownCharacter()
+                assert False, f'Unknown character {self.stream[0]}'
 
             pos.end_column = self.column
             pos.end_line = self.line

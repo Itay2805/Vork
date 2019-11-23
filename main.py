@@ -17,8 +17,8 @@ def parse_file(filename):
             return parser.parse()
         except Exception as e:
             # TODO: error recovering?
-            import traceback
-            traceback.print_exc()
+            # import traceback
+            # traceback.print_exc()
 
             pos = tokenizer.token.pos
 

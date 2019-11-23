@@ -228,6 +228,8 @@ class Parser:
         return expr
 
     def _parse_conditional(self):
+
+        # If expression
         if self.t.match_keyword('if'):
             condition = self.parse_expr()
             block_true = self.parse_stmt_block()
@@ -235,9 +237,16 @@ class Parser:
             assert self.t.match_keyword('else')
             block_false = self.parse_stmt_block()
 
-            return ExprConditional(condition, block_true, block_false)
+            return ExprIf(condition, block_true, block_false)
         else:
-            return self._parse_logical_or()
+            expr = self._parse_logical_or()
+
+            # Or expression
+            if self.t.match_keyword('or'):
+                block = self.parse_stmt_block()
+                return ExprOr(expr, block)
+
+            return expr
 
     def _parse_assignment(self):
         expr = self._parse_conditional()
@@ -295,9 +304,14 @@ class Parser:
     def parse_stmt(self):
         # Return statement
         if self.t.match_keyword('return'):
-            exprs = [self.parse_expr()]
-            while self.t.match_token(','):
+            exprs = []
+
+            # Return should always be before an end of block so that tells us we have no arguments
+            if not self.t.is_token('}'):
                 exprs.append(self.parse_expr())
+                while self.t.match_token(','):
+                    exprs.append(self.parse_expr())
+
             return StmtReturn(exprs)
 
         # Assert statement

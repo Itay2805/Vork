@@ -1,8 +1,5 @@
-fn C.printint(num int)
+fn C.test() ?int
 
-fn main() {
-	for _ in 0..5 {
-		C.printint(_)
-	}
-	C.printint(123)
+fn test() {
+    i := C.test() or { return }
 }

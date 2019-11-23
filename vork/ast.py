@@ -103,7 +103,7 @@ class StmtReturn(Stmt):
         return f'(return {" ".join(map(str, self.exprs))})'
 
     def type_checking(self, function):
-        assert len(self.exprs) == 1, f'Multiple return values are not supported yet'
+        assert len(self.exprs) <= 1, f'Multiple return values are not supported yet'
 
         for expr in self.exprs:
             expr.resolve_type(function)
@@ -155,6 +155,11 @@ class StmtVarDecl(Stmt):
     def __str__(self):
         mut = 'mut ' if self.mut else ''
         return f'(var {mut}({" ".join(self.names)}) {self.expr})'
+
+    def type_checking(self, function):
+        # TODO: support multiple return
+        xtype = self.expr.resolve_type(function)
+        function.frame[-1].add_var(self.names[0], xtype, self.mut)
 
 
 class StmtForeach(Stmt):
@@ -635,10 +640,10 @@ class ExprPostfix(Expr):
         return xtype
 
 
-class ExprConditional(Expr):
+class ExprIf(Expr):
 
     def __init__(self, condition: Expr, block_true: StmtBlock, block_false: StmtBlock):
-        super(ExprConditional, self).__init__()
+        super(ExprIf, self).__init__()
         self.condition = condition
         self.block_true = block_true
         self.block_false = block_false
@@ -663,6 +668,33 @@ class ExprConditional(Expr):
         assert true_type == false_type, f'Type mismatch between blocks (got {true_type} and {false_type})'
 
         return true_type
+
+
+class ExprOr(Expr):
+
+    def __init__(self, expr: Expr, block_error: StmtBlock):
+        super(ExprOr, self).__init__()
+        self.expr = expr
+        self.block_error = block_error
+
+    def __str__(self):
+        s = f'(or {self.expr}\n'
+        s += '  ' + str(self.block_error).replace('\n', '\n  ') + ')'
+        return s
+
+    def _internal_resolve_type(self, function):
+        xtype = self.expr.resolve_type(function)
+        assert isinstance(xtype, VOptionalType), f'expected an optional type, got `{xtype}`'
+
+        # Make sure the block never exits the block
+        # TODO: add check for the panic function (or just add a noreturn attribute?)
+        self.block_error.type_checking(function)
+        assert len(self.block_error.stmts) != 0, f'or block must return!'
+        stmt = self.block_error.stmts[-1]
+        assert isinstance(stmt, StmtReturn), f'or block must return!'
+
+        # Return the underlying type
+        return xtype.type
 
 
 class ExprMemberAccess(Expr):
