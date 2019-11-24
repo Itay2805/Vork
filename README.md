@@ -55,6 +55,7 @@ hopefully by the done I am finished with the parser the (official) formal gramma
 * Functions, methods and interop functions
     * missing generics
     * missing multiple return value
+    * missing auto wrapping of optional values
 * Module and Imports
 * Structs with their access modifiers
     * missing the base type
@@ -68,6 +69,7 @@ hopefully by the done I am finished with the parser the (official) formal gramma
 * Variable declarations
 * Enums declarations 
 * Integer, Float and arrays literals
+* or statement
 * Super basic type checking
     * missing mut checks
     * missing unsafe checks
@@ -79,7 +81,6 @@ hopefully by the done I am finished with the parser the (official) formal gramma
 * interfaces
 * match
 * go statement
-* or statement
 * attributes
 * compile time if
 

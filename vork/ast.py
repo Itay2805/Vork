@@ -1,3 +1,4 @@
+import os
 from typing import *
 from enum import Enum
 
@@ -322,34 +323,34 @@ class VBool(VType):
     def __eq__(self, other):
         return isinstance(other, VBool)
 
-
-class VFuncType(VType):
-
-    def __init__(self, args: List[Tuple[VType, bool]], ret: VType or None):
-        self.args = args
-        self.ret = ret
-
-    def __str__(self):
-        args = []
-        for arg in self.args:
-            a = ''
-            if arg[1]:
-                a += 'mut '
-            a += arg[0]
-            args.append(a)
-
-        s = f'fn ({args})'
-
-        if self.ret is not None:
-            s += ' ' + self.ret
-
-        return s
-
-    def __eq__(self, other):
-        if isinstance(other, VFuncType):
-            return self.args == other.args and self.ret == other.ret
-        return False
-
+#
+# class VFuncType(VType):
+#
+#     def __init__(self, args: List[Tuple[VType, bool]], ret: VType or None):
+#         self.args = args
+#         self.ret = ret
+#
+#     def __str__(self):
+#         args = []
+#         for arg in self.args:
+#             a = ''
+#             if arg[1]:
+#                 a += 'mut '
+#             a += arg[0]
+#             args.append(a)
+#
+#         s = f'fn ({args})'
+#
+#         if self.ret is not None:
+#             s += ' ' + self.ret
+#
+#         return s
+#
+#     def __eq__(self, other):
+#         if isinstance(other, VFuncType):
+#             return self.args == other.args and self.ret == other.ret
+#         return False
+#
 
 class VArrayType(VType):
 
@@ -491,8 +492,20 @@ class ExprIdentifierLiteral(Expr):
     def _internal_resolve_type(self, function):
         res = function.get_var(self.name)
         assert res is not None, f"Unknown identifier `{self.name}`"
-        var, mut = res
-        return var
+
+        # This is how we store a variable
+        if isinstance(res, tuple):
+            return res[0]
+
+        # This is how we store interop functions
+        elif isinstance(res, dict):
+            return res
+
+        # Handle constants
+        elif isinstance(res, ConstDecl):
+            return res.get_type(function)
+
+        assert False, f'unknown identifier type {res}'
 
 
 class ExprBinary(Expr):
@@ -765,7 +778,7 @@ class ExprMemberAccess(Expr):
                 assert False, f'Unknown interop function `{self.member}`'
 
         # Did not find anything
-        assert False, f'Type `{self.member}` has no members!'
+        assert False, f'Type `{value_type}` has no members!'
 
 
 class ExprIndexAccess(Expr):
@@ -910,9 +923,10 @@ class StructElement:
 
 class StructDecl:
 
-    def __init__(self, pub: bool, name: str, base: StructElement or None, elements: List[StructElement]):
+    def __init__(self, pub: bool, attribute: dict, name: str, base: StructElement or None, elements: List[StructElement]):
         self.module = None  # type: Module
         self.pub = pub
+        self.attribute = attribute
         self.name = name
         self.base = base
         self.elements = elements
@@ -987,46 +1001,36 @@ class ConstDecl:
         self.value.resolve_type(self.module)
 
     def get_type(self, function):
-        return self.value.resolve_type(self.module)
+        return self.value.resolve_type(function)
+
+
+class TypeDecl:
+
+    def __init__(self, pub: bool, name: str, xtype: VType):
+        self.pub = pub
+        self.name = name
+        self.type = xtype
+
+    def __str__(self):
+        pub = 'pub ' if self.pub else ''
+        return f'(type {pub}{self.name} {self.type})'
+
+    def type_checking(self):
+        pass
 
 
 class Module:
 
-    TYPE_MAP = {
-        'i8': VIntegerType(8, True),
-        'i16': VIntegerType(16, True),
-        'int': VIntegerType(32, True),
-        'i64': VIntegerType(64, True),
-        'i128': VIntegerType(128, True),
-
-        'byte': VIntegerType(8, False),
-        'u16': VIntegerType(16, False),
-        'u32': VIntegerType(32, False),
-        'u64': VIntegerType(64, False),
-        'u128': VIntegerType(128, False),
-
-        'f32': VFloatType(32),
-        'f64': VFloatType(64),
-
-        'bool': VBool(),
-
-        # 'byteptr':
-        # 'voidptr':
-        #
-        # 'string':
-        # 'rune':
-    }
-
     def __init__(self):
+        self.workspace = None  # type: Workspace
         self.name = 'main'
-        self.decls = {
-            'C': {}
-        }  # type: Dict[str, Any]
-
-        # interop functions are added to this scope
+        self.decls = {}
 
     def add(self, val):
-        assert val.name not in Module.TYPE_MAP, f'duplicate name `{val.name}` in module `{self.name}`'
+        # Make sure not in builtin already
+        assert self._resolve_builtin(val.name) is None, f'duplicate name `{val.name}` in module `{self.name}`'
+
+        # Add the module as long as this is not an import
         if not isinstance(val, Module):
             val.module = self
 
@@ -1038,22 +1042,34 @@ class Module:
             else:
                 assert val.name not in self.decls, f'duplicate name `{val.name}` in module `{self.name}`'
                 self.decls[val.name] = val
+
+        # On import simply load the module from the workspace
+        elif isinstance(val, ImportDecl):
+            self.add(self.workspace.load_module(val.name))
+
+        # Handle the module declaration
+        elif isinstance(val, ModuleDecl):
+            assert val.name == self.name, f'module declaration and module path mismatch (`{val.name}` and `{self.name}`)!'
+
+        # everything else we just add as is
         else:
             self.decls[val.name] = val
 
     def get_var(self, name):
+        bnval = self._resolve_builtin(name)
+
+        if bnval is not None:
+            return bnval
+
         if name in self.decls:
-            return self.decls[name], False
+            return self.decls[name]
+
         return None
 
     def resolve_type(self, xtype):
-
         # Unknown type
         if isinstance(xtype, VUnknownType):
-            if xtype.name in Module.TYPE_MAP:
-                return Module.TYPE_MAP[xtype.name]
-            else:
-                assert False, f'Unknown type `{xtype.name}`'
+            xtype = self.get_var(xtype.name)
 
         # Array ty[e
         elif isinstance(xtype, VArrayType):
@@ -1085,6 +1101,9 @@ class Module:
             for key in xtype:
                 xtype[key] = self.resolve_type(xtype[key])
 
+        elif isinstance(xtype, TypeDecl):
+            xtype = self.resolve_type(xtype.type)
+
         # No return value
         elif xtype is None:
             return None
@@ -1093,6 +1112,14 @@ class Module:
             assert False, xtype
 
         return xtype
+
+    def _resolve_builtin(self, name):
+        if self.name == 'builtin':
+            return None
+
+        bn = self.decls['builtin']
+        assert isinstance(bn, Module), f'error resolving builtin!'
+        return bn.get_var(name)
 
     def get_module(self):
         return self
@@ -1139,3 +1166,131 @@ class Module:
         # finally do type checking on all functions
         for func in functions:
             func.type_checking()
+
+    def __str__(self):
+        s = ''
+        for k in self.decls:
+            decl = self.decls[k]
+            s += str(decl) + '\n'
+        return s[:-1]
+
+
+BOLD = '\033[01m'
+RESET = '\033[0m'
+GREEN = '\033[32m'
+RED = '\033[31m'
+
+
+def load_from_path(module: Module, path: str):
+    if os.path.exists(path):
+        for file in os.listdir(path):
+            if os.path.isfile(file) and file.endswith('.v'):
+                # we do the imports here to avoid recursive imports
+                from vork.parser import Parser
+                from vork.tokenizer import Tokenizer
+                with open(file, 'r') as f:
+                    text = f.read()
+                    lines = text.splitlines()
+                    tokenizer = Tokenizer(text)
+                    parser = Parser(tokenizer)
+
+                    try:
+                        # Parse it and add everything to the module
+                        ast = parser.parse()
+                        for a in ast:
+                            module.add(a)
+                    except Exception as e:
+                        # TODO: syntax error recovering?
+                        pos = tokenizer.token.pos
+
+                        msg = ", ".join(e.args)
+                        if msg == '':
+                            msg = 'Unexpected token'
+
+                        print(
+                            f'{BOLD}{file}:{pos.start_line + 1}:{pos.start_column + 1}:{RESET} {RED}{BOLD}syntax error:{RESET} {msg}')
+
+                        line = lines[pos.start_line]
+                        line = line[:pos.start_column] + BOLD + line[
+                                                                pos.start_column:pos.end_column] + RESET + line[
+                                                                                                           pos.end_column:]
+                        print(line)
+
+                        c = ''
+                        for i in range(pos.start_column):
+                            if lines[pos.start_line][i] == '\t':
+                                c += '\t'
+                            else:
+                                c += ' '
+
+                        print(c + BOLD + RED + '^' + '~' * (pos.end_column - pos.start_column - 1) + RESET)
+                        print()
+
+
+class Workspace:
+
+    def __init__(self, dirs: List[str]):
+        self.modules = {}  # type: Dict[str, Module]
+        self.dirs = dirs
+
+        # Create the builtin module
+        self.builtin = Module()
+        self.builtin.name = 'builtin'
+
+        # Add integer types
+        self.builtin.add(TypeDecl(True, 'byte', VIntegerType(8, False)))
+        self.builtin.add(TypeDecl(True, 'u16', VIntegerType(16, False)))
+        self.builtin.add(TypeDecl(True, 'u32', VIntegerType(32, False)))
+        self.builtin.add(TypeDecl(True, 'u64', VIntegerType(64, False)))
+        self.builtin.add(TypeDecl(True, 'u128', VIntegerType(128, False)))
+        self.builtin.add(TypeDecl(True, 'i8', VIntegerType(8, True)))
+        self.builtin.add(TypeDecl(True, 'i16', VIntegerType(16, True)))
+        self.builtin.add(TypeDecl(True, 'int', VIntegerType(32, True)))
+        self.builtin.add(TypeDecl(True, 'i64', VIntegerType(64, True)))
+        self.builtin.add(TypeDecl(True, 'i128', VIntegerType(128, True)))
+
+        # Add float types
+        self.builtin.add(TypeDecl(True, 'f32', VFloatType(32)))
+        self.builtin.add(TypeDecl(True, 'f64', VFloatType(64)))
+
+        # Add other types
+        self.builtin.add(TypeDecl(True, 'bool', VBool()))
+
+    def load_main(self, path):
+        if 'main' in self.modules:
+            return self.modules['main']
+        module = Module()
+        module.workspace = self
+        module.decls['builtin'] = self.builtin
+        module.decls['C'] = dict()
+        module.name = 'main'
+        self.modules['main'] = module
+        load_from_path(self.modules['main'], path)
+        module.type_checking()
+
+    def load_module(self, name: str):
+        # first make sure we don't have it already
+        if name in self.modules:
+            return self.modules[name]
+
+        # Create it
+        module = Module()
+        module.workspace = self
+        module.decls['builtin'] = self.builtin
+        module.decls['C'] = dict()
+        module.name = name.split('.')[-1]
+        self.modules[name] = module
+
+        # search for all the files related to the module
+        module_path = name.replace('.', '/')
+        for path in self.dirs:
+            load_from_path(module, path)
+
+        # Do the type checking
+        module.type_checking()
+
+        return module
+
+
+
+

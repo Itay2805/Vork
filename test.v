@@ -1,5 +1,5 @@
 fn C.test() ?int
 
-fn test() {
-    i := C.test() or { return }
+fn test() int {
+    return C.test() or { return 0 }
 }
